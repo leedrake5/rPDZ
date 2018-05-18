@@ -1,75 +1,3 @@
-ggplot(subset(unfold_simple(test), Energy > 0.8), aes(Energy, Hodder.v(Hodder.v(CPS)))) + geom_line() + theme_light() +  scale_x_continuous(limits=c(2, 5))
-ggplot(subset(unfold(test), Energy > 0.8), aes(Energy, Hodder.v(Hodder.v(CPS)))) + geom_line() + theme_light() +  scale_x_continuous(limits=c(2, 5))
-index <- recognize_fold(test)
-index
-new.test <- unfold_simple(spectrum=test, index.seq=index)
-ggplot(new.teest, Energy > 0.8), aes(Energy, Hodder.v(Hodder.v(CPS)))) + geom_line() + theme_light() +  scale_x_continuous(limits=c(2, 5))
-ggplot(new.test, aes(Energy, Hodder.v(Hodder.v(CPS)))) + geom_line() + theme_light() +  scale_x_continuous(limits=c(2, 5))
-ggsave(file="/Users/lee/GitHub/CloudCal/Tests/spectra/fold0.jpeg", plot=ggplot(test, aes(Energy, CPS)) + geom_line() + theme_light(), device="jpeg", width=8, height=5)#
-#
-index <- recognize_fold(test)#
-#
-new.test <- unfold_simple(spectrum=test, index.seq=index)#
-index2 <- recognize_fold(new.test)#
-ggsave(file="/Users/lee/GitHub/CloudCal/Tests/spectra/fold1.jpeg", plot=ggplot(new.test, aes(Energy, CPS)) + geom_line() + theme_light(), device="jpeg", width=8, height=5)#
-#
-new.test2 <- unfold_simple(spectrum= new.test, index.seq= index2)#
-          index3 <- recognize_fold(new.test2)#
-          ggsave(file="/Users/lee/GitHub/CloudCal/Tests/spectra/fold2.jpeg", plot=ggplot(new.test2, aes(Energy, CPS)) + geom_line()+ theme_light(), device="jpeg", width=8, height=5)#
-#
-new.test3 <- unfold_simple(spectrum= new.test2, index.seq= index3)#
-          index4 <- recognize_fold(new.test3)#
-          ggsave(file="/Users/lee/GitHub/CloudCal/Tests/spectra/fold3.jpeg", plot=ggplot(new.test3, aes(Energy, CPS)) + geom_line()+ theme_light(), device="jpeg", width=8, height=5)#
-new.test4 <- unfold_simple(spectrum=new.test3, index.seq= index4)#
-          index5 <- recognize_fold(new.test4)#
-          ggsave(file="/Users/lee/GitHub/CloudCal/Tests/spectra/fold4.jpeg", plot=ggplot(new.test4, aes(Energy, CPS)) + geom_line()+ theme_light(), device="jpeg", width=8, height=5)#
-new.test5 <- unfold_simple(spectrum=new.test4, index.seq= index5)#
-          index6 <- recognize_fold(new.test5)#
-          ggsave(file="/Users/lee/GitHub/CloudCal/Tests/spectra/fold5.jpeg", plot=ggplot(new.test5, aes(Energy, CPS)) + geom_line()+ theme_light(), device="jpeg", width=8, height=5)#
-new.test6 <- unfold_simple(spectrum=new.test5, index.seq= index6)#
-          index7 <- recognize_fold(new.test6)#
-          ggsave(file="/Users/lee/GitHub/CloudCal/Tests/spectra/fold6.jpeg", plot=ggplot(new.test6, aes(Energy, CPS)) + geom_line()+ theme_light(), device="jpeg", width=8, height=5)#
-new.test7 <- unfold_simple(spectrum=new.test6, index.seq= index7)#
-          index8 <- recognize_fold(new.test7)#
-          ggsave(file="/Users/lee/GitHub/CloudCal/Tests/spectra/fold7.jpeg", plot=ggplot(new.test7, aes(Energy, CPS)) + geom_line()+ theme_light(), device="jpeg", width=8, height=5)#
-new.test8 <- unfold_simple(spectrum=new.test7, index.seq= index8)#
-          index9 <- recognize_fold(new.test8)#
-          ggsave(file="/Users/lee/GitHub/CloudCal/Tests/spectra/fold8.jpeg", plot=ggplot(new.test8, aes(Energy, CPS)) + geom_line()+ theme_light(), device="jpeg", width=8, height=5)#
-new.test9 <- unfold_simple(spectrum=new.test8, index.seq= index9)#
-          index10 <- recognize_fold(new.test9)#
-          ggsave(file="/Users/lee/GitHub/CloudCal/Tests/spectra/fold9.jpeg", plot=ggplot(new.test9, aes(Energy, CPS)) + geom_line()+ theme_light(), device="jpeg", width=8, height=5)#
-new.test10 <- unfold_simple(spectrum=new.test9, index.seq= index10)#
-          index11 <- recognize_fold(new.test10)#
-          ggsave(file="/Users/lee/GitHub/CloudCal/Tests/spectra/fold10.jpeg", plot=ggplot(new.test10, aes(Energy, CPS)) + geom_line()+ theme_light(), device="jpeg", width=8, height=5)#
-new.test11 <- unfold_simple(spectrum=new.test10, index.seq= index11)#
-          index12 <- recognize_fold(new.test11)#
-          ggsave(file="/Users/lee/GitHub/CloudCal/Tests/spectra/fold11.jpeg", plot=ggplot(new.test11, aes(Energy, CPS)) + geom_line()+ theme_light(), device="jpeg", width=8, height=5)#
-new.test12 <- unfold_simple(spectrum=new.test11, index.seq= index12)#
-          index13 <- recognize_fold(new.test12)#
-          ggsave(file="/Users/lee/GitHub/CloudCal/Tests/spectra/fold12.jpeg", plot=ggplot(new.test12, aes(Energy, CPS)) + geom_line()+ theme_light(), device="jpeg", width=8, height=5)#
-new.test13 <- unfold_simple(spectrum=new.test12, index.seq= index13)#
-          index14 <- recognize_fold(new.test13)#
-          ggsave(file="/Users/lee/GitHub/CloudCal/Tests/spectra/fold13.jpeg", plot=ggplot(new.test13, aes(Energy, CPS)) + geom_line()+ theme_light(), device="jpeg", width=8, height=5)#
-new.test14 <- unfold_simple(spectrum=new.test13, index.seq= index14)#
-          index15 <- recognize_fold(new.test14)#
-          ggsave(file="/Users/lee/GitHub/CloudCal/Tests/spectra/fold14.jpeg", plot=ggplot(new.test14, aes(Energy, CPS)) + geom_line()+ theme_light(), device="jpeg", width=8, height=5)#
-new.test15 <- unfold_simple(spectrum=new.test14, index.seq= index15)#
-          index16 <- recognize_fold(new.test15)#
-          ggsave(file="/Users/lee/GitHub/CloudCal/Tests/spectra/fold15.jpeg", plot=ggplot(new.test15, aes(Energy, CPS)) + geom_line()+ theme_light(), device="jpeg", width=8, height=5)#
-new.test16 <- unfold_simple(spectrum=new.test15, index.seq= index16)#
-          index17 <- recognize_fold(new.test16)#
-          ggsave(file="/Users/lee/GitHub/CloudCal/Tests/spectra/fold16.jpeg", plot=ggplot(new.test16, aes(Energy, CPS)) + geom_line()+ theme_light(), device="jpeg", width=8, height=5)#
-new.test17 <- unfold_simple(spectrum=new.test16, index.seq= index17)#
-          index18 <- recognize_fold(new.test17)#
-          ggsave(file="/Users/lee/GitHub/CloudCal/Tests/spectra/fold17.jpeg", plot=ggplot(new.test17, aes(Energy, CPS)) + geom_line()+ theme_light(), device="jpeg", width=8, height=5)
-?readBin
-update.packages(ask=FALSE)
-filepath <- "~/Desktop/Projects/all 5i work 3 27 2018/900F4430 UCSD/MUD 01.pdz"#
-test2 <- read.csv("/Users/lee/Desktop/Projects/all 5i work 3 27 2018/900F4430 UCSD/CSV/MUD 01.CSV", header=FALSE)
-integers <- readBin(con=filepath, what= "int", n=3000, endian="little", signed=FALSE)#
-doubles <- as.double(integers)
-?Rcpp::NumericVector
-?NumericVector
 library(Rcpp)
 ?NumericVector
 ??NumericVector
@@ -912,30 +840,43 @@ index <- seq(1, length(test), 1)#
 test.frame <- data.frame(Energy=index*.02, CPS=test)#
 ggplot(test.frame, aes(Energy, CPS)) + geom_line() + theme_light() + geom_vline(xintercept=6.4, lty=2) + geom_vline(xintercept=1.7, lty=2)  + geom_vline(xintercept=0.42, lty=2)
 shiny::runApp("~/GitHub/obsidianSource")
-setwd("/Users/lee/GitHub/rPDZ")#
-library(Rcpp)#
-library(RcppArmadillo)#
-RcppArmadillo.package.skeleton("rpdz.cpp")
-setwd("/Users/lee/GitHub/rPDZ")#
-library(Rcpp)#
-library(RcppArmadillo)#
-RcppArmadillo.package.skeleton("rpdz.cpp")
-Rcpp.package.skeleton("rpdz.cpp")
-Rcpp.package.skeleton("rpdz.cpp")
-Rcpp.package.skeleton("rpdz.cpp")
-compileAttributes(verbose=TRUE)
-setwd("~/GitHub/rPDZ/rpdz.cpp")
-compileAttributes(verbose=TRUE)
 library(tools)
-package_native_routine_registration_skeleton("package-root-directory")
 package_native_routine_registration_skeleton("~/GitHub/rPDZ/rpdz.cpp")
-package_native_routine_registration_skeleton("~/GitHub/rPDZ/rpdz.cpp/R")
-package_native_routine_registration_skeleton("~/GitHub/rPDZ/rpdz.cpp/R")
 setwd("~/GitHub/rPDZ/rpdz.cpp")
-package_native_routine_registration_skeleton("~/GitHub/rPDZ/rpdz.cpp/R")
-package_native_routine_registration_skeleton("~/GitHub/rPDZ/rpdz.cpp")
-R CMD build rpdz
-R CMD build rpdzcpp
-R CMD build rpdz.cpp
+tools::package_native_routine_registration_skeleton(".", character_only = FALSE)
 compileAttributes(verbose=TRUE)
-q()
+Rcpp::compileAttributes(verbose=TRUE)
+tools::package_native_routine_registration_skeleton(".", character_only = FALSE)
+library(rdz.cpp)
+library(rpdz.cpp)
+check.packages("rpdz.cpp")
+check.packages <- function(pkg){#
+    new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]#
+    if (length(new.pkg)) #
+        install.packages(new.pkg, dependencies = TRUE)#
+    sapply(pkg, require, character.only = TRUE)#
+}
+check.packages("rpdz.cpp")
+devtools::install_github("leedrake5/rPDZ")
+install_github("wrengels/HWxtest", subdir="rpdz.cpp")
+devtools::install_github("wrengels/HWxtest", subdir="rpdz.cpp")
+devtools::install_github("leedrake5/rPDZ", subdir="rpdz.cpp")
+"rpdz.cpp" %in% installed.packages()[,"Package"]
+"rpdx.cpp" %in% installed.packages()[,"Package"]
+"rpdz.cpp" %in% installed.packages()[,"Package"]==FALSE
+"rpdz.cpp" %in% installed.packages()[,"Package"]==TRUE
+library(rpdz.cpp)
+devtools::install_github("leedrake5/rPDZ", subdir="rpdz.cpp_1.0.tar.gz")
+install.packages('rpdz.cpp", lib="https://github.com/leedrake5/rPDZ/blob/master/rpdz.cpp_1.0.tar.gz')
+install.packages('rpdz.cpp", lib="https://github.com/leedrake5/rPDZ/blob/master/')
+install.packages('rpdz.cpp", CRAN="https://github.com/leedrake5/rPDZ/blob/master/', )
+install.packages('rpdz.cpp", CRAN="https://github.com/leedrake5/rPDZ/blob/master/rpdz.cpp_1.0.tar.gz', )
+install.packages('rpdz.cpp", CRAN="https://github.com/leedrake5/rPDZ/blob/master/rpdz.cpp_1.0.tar.gz' )
+install.packages('rpdz.cpp", CRAN="https://github.com/leedrake5/rPDZ/blob/master/rpdz.cpp_1.0.tar.gz" )
+install.packages("rpdz.cpp", CRAN="https://github.com/leedrake5/rPDZ/blob/master/rpdz.cpp_1.0.tar.gz" )
+install.packages("rpdz.cpp", CRAN="https://github.com/leedrake5/rPDZ/blob/master/rpdz.cpp_1.0.tar.gz", method=download.file)
+install.packages("https://github.com/leedrake5/rPDZ/blob/master/rpdz.cpp_1.0.tar.gz")
+install.packages("https://github.com/leedrake5/rPDZ/raw/master/rpdz.cpp_1.0.tar.gz")
+find_rtools(T)
+devtools::find_rtools(T)
+install.packages("~/GitHub/rPDZ/rpdz.cpp_1.0.tar.gz")
