@@ -1,11 +1,13 @@
 Package: rPDZ
 Type: Package
-Title: What the Package Does in One 'Title Case' Line
+Title: What the Package
+   Does in One 'Title
+   Case' Line
 Version: 1.0
 Date: 2018-05-18
 Author: Your Name
 Maintainer: Your Name
- <your@email.com>
+   <your@email.com>
 Description: One paragraph
    description of what the
    package does as one or
@@ -13,4 +15,3 @@ Description: One paragraph
 License: GPL (>= 2)
 Imports: Rcpp (>= 0.12.16)
 LinkingTo: Rcpp
-Built: R 3.5.0; x86_64-apple-darwin15.6.0; 2018-05-18 18:52:35 UTC; unix
