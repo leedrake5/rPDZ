@@ -1,5 +1,0 @@
-useDynLib(rpdz.cpp, .registration=TRUE)
-exportPattern("^[[:alpha:]]+")
-importFrom(Rcpp, evalCpp)
-# Export all names
-exportPattern(".")
