@@ -1,5 +1,5 @@
 ###in R
-setwd("/Users/lee/GitHub/rPDZ")
+setwd("~/GitHub/rPDZ")
 library(Rcpp)
 Rcpp::Rcpp.package.skeleton("rPDZ")
 
@@ -11,13 +11,15 @@ Rcpp::compileAttributes(verbose=TRUE)
 
 
 ####in Terminal - this step creates your R package
-cd "/Users/lee/GitHub/rPDZ"
-sudo R CMD build rPDZ
+cd "~/GitHub/rPDZ"
+R CMD build rPDZ
 
 
 ###back in R
 
 ###Windows
-devtools::build_win(pkg="/Users/lee/GitHub/rPDZ/rPDZ")
+devtools::build_win(pkg="~/GitHub/rPDZ")
 
 
+###Test
+install.packages("/Users/lee/GitHub/rPDZ/Packages/rPDZ_1.2.tar.gz", type="source", repos=NULL)
