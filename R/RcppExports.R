@@ -5,11 +5,31 @@ readPDZ24 <- function(fileName, start, size) {
     .Call(`_rPDZ_readPDZ24`, fileName, start, size)
 }
 
+readPDZ24FloatFetch <- function(fileName, position) {
+    .Call(`_rPDZ_readPDZ24FloatFetch`, fileName, position)
+}
+
+readPDZ24DoubleFetch <- function(fileName, position) {
+    .Call(`_rPDZ_readPDZ24DoubleFetch`, fileName, position)
+}
+
 readPDZ <- function(fileName, start, size) {
     .Call(`_rPDZ_readPDZ`, fileName, start, size)
 }
 
 readPDZ25 <- function(fileName) {
     .Call(`_rPDZ_readPDZ25`, fileName)
+}
+
+readPDZ25eVCH <- function(fileName) {
+    .Call(`_rPDZ_readPDZ25eVCH`, fileName)
+}
+
+readPDZ25LiveTime <- function(fileName) {
+    .Call(`_rPDZ_readPDZ25LiveTime`, fileName)
+}
+
+readPDZ25FloatFetch <- function(fileName, position) {
+    .Call(`_rPDZ_readPDZ25FloatFetch`, fileName, position)
 }
 
