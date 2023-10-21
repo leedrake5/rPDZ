@@ -8,6 +8,7 @@
 //
 #include <Rcpp.h>
 #include <fstream>
+#include <vector>
 
 using namespace Rcpp;
 // [[Rcpp::export()]]
@@ -42,50 +43,54 @@ NumericVector readPDZ(std::string fileName, int start, int size) {
 
 // [[Rcpp::export]]
 std::vector<uint32_t> readPDZ25(std::string fileName) {
-    int fileIndex;          // index in to file position
-    bool looping = false;   // used as a flag to control while loop, initialized as false
+    int fileIndex;
+    bool looping = false;
     short recordID;
     int recordLength;
     uint32_t spectrum[2048];
-    char record[5000];               // I hope this is big enough
+    std::vector<char> record(10000000); // This is okay
     
-    std::ifstream file(fileName, std::ios::binary); // Declare 'file' as a std::ifstream object and open the binary file
+    std::ifstream file(fileName, std::ios::binary);
 
     if (file.is_open()) {
-        // I read the first 20 bytes, you could check if a[0] = 0x19  (= 25 decimal), as it is for PDZ v25.
-        file.read ((char*)&record, 20);
+        file.read(record.data(), 20); // Change here: use record.data() to get the underlying array
         fileIndex = 20;
-        while (!looping) { // changed looping condition to use boolean value instead of integer
-            // read the ID and length of  the record, 2 bytes for the ID, 4 bytes for the length
-            file.read((char *)&record, 6);
-            recordID =  *(short *) (record);       // changed pointer arithmetic here
-            recordLength = *(int *) (record + 2);  // changed pointer arithmetic here
+        while (!looping) {
+            file.read(record.data(), 6); // Change here: use record.data()
+            
+            // Use reinterpret_cast for strict type aliasing, ensuring correct pointer types
+            recordID = *reinterpret_cast<short*>(record.data());
+            recordLength = *reinterpret_cast<int*>(record.data() + 2);
             
             if (recordID == 3) {
-                looping = true;        // set flag to break while loop
-                file.read((char*)&record, recordLength);
-                int spOff = (*(int*)(record + 114)) * 2;  // changed pointer arithmetic here and removed unnecessary casts
-                 spOff += 120;
+                looping = true;
+                file.read(record.data(), recordLength); // Change here: use record.data()
+                int spOff = (*reinterpret_cast<int*>(record.data() + 114)) * 2;
+                spOff += 120;
 
-                
-                for (int i=0; i<2048; i++) {
-                    spectrum[i] = *(uint32_t *)(&record[spOff+i*sizeof(uint32_t)]); // Fixed the pointer arithmetic here to correctly point to each uint32_t element in 'record' array.
+                for (int i = 0; i < 2048; i++) {
+                    // Access the elements of 'record' correctly
+                    spectrum[i] = *reinterpret_cast<uint32_t*>(record.data() + spOff + i * sizeof(uint32_t));
                 }
             } else if (recordID == 4) {
-                looping = true;          // set flag to break while loop
+                looping = true;
                 int spOff = 164;
-                
-                for (int i=0; i<2048; i++) {
-                    spectrum[i] = *(uint32_t *)(&record[spOff+i*sizeof(uint32_t)]); // Fixed the pointer arithmetic here to correctly point to each uint32_t element in 'record' array.
+
+                for (int i = 0; i < 2048; i++) {
+                    // Access the elements of 'record' correctly
+                    spectrum[i] = *reinterpret_cast<uint32_t*>(record.data() + spOff + i * sizeof(uint32_t));
                 }
             } else {
-                fileIndex += recordLength + 6;  // updated to add ID and length back
+                fileIndex += recordLength + 6;
                 file.seekg(fileIndex);
             }
-        }    // end while
+        }
         file.close();
     } else {
-       // some message the file did not open
+        // Handle the error: the file did not open
+        Rcpp::stop("Could not open file");  // This is how you throw an error in Rcpp
     }
-   return std::vector<uint32_t>(spectrum, spectrum + 2048);  // Convert array to vector before returning
+    
+    // Convert array to vector before returning
+    return std::vector<uint32_t>(spectrum, spectrum + 2048);
 }
