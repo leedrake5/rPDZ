@@ -216,3 +216,47 @@ float readPDZ25LiveTime(std::string fileName) {  // changed return type to float
 
     return singleValue;  // returning the single float value
 }
+
+// [[Rcpp::export]]
+float readPDZ25FloatFetch(std::string fileName, int position) {  // changed return type to float
+    int fileIndex;
+    bool looping = true;  // changed to true for the purpose of the while loop
+    short recordID;
+    int recordLength;
+    float singleValue;  // to hold the single float value
+    std::vector<char> record(10000000);  // This is okay
+    
+    std::ifstream file(fileName, std::ios::binary);
+
+    if (file.is_open()) {
+        file.read(record.data(), 20);  // reading initial part of the file
+        fileIndex = 20;
+
+        // Changed to do-while to ensure the loop executes at least once
+        do {
+            file.read(record.data(), 6);  // reading record header
+
+            // Using reinterpret_cast for the correct type interpretation
+            recordID = *reinterpret_cast<short*>(record.data());
+            recordLength = *reinterpret_cast<int*>(record.data() + 2);
+
+            if (recordID == 3) {  // condition for specific record type
+                file.read(record.data(), recordLength);  // reading the entire record
+
+                // proper casting and pointer arithmetic to read the float value
+                singleValue = *reinterpret_cast<float*>(record.data() + position);  // assuming the float is at position 76
+                break;  // break the loop as we found the value we were looking for
+
+            } else {  // if the record is not the type we're looking for
+                fileIndex += recordLength + 6;
+                file.seekg(fileIndex);  // skip to the next record
+            }
+        } while (looping);  // using the condition variable to control the loop
+
+        file.close();  // closing the file after reading
+    } else {
+        Rcpp::stop("Could not open file");  // error handling for file opening
+    }
+
+    return singleValue;  // returning the single float value
+}
