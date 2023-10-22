@@ -23,6 +23,30 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// readPDZ24FloatFetch
+float readPDZ24FloatFetch(std::string fileName, int position);
+RcppExport SEXP _rPDZ_readPDZ24FloatFetch(SEXP fileNameSEXP, SEXP positionSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string >::type fileName(fileNameSEXP);
+    Rcpp::traits::input_parameter< int >::type position(positionSEXP);
+    rcpp_result_gen = Rcpp::wrap(readPDZ24FloatFetch(fileName, position));
+    return rcpp_result_gen;
+END_RCPP
+}
+// readPDZ24DoubleFetch
+double readPDZ24DoubleFetch(std::string fileName, int position);
+RcppExport SEXP _rPDZ_readPDZ24DoubleFetch(SEXP fileNameSEXP, SEXP positionSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string >::type fileName(fileNameSEXP);
+    Rcpp::traits::input_parameter< int >::type position(positionSEXP);
+    rcpp_result_gen = Rcpp::wrap(readPDZ24DoubleFetch(fileName, position));
+    return rcpp_result_gen;
+END_RCPP
+}
 // readPDZ
 NumericVector readPDZ(std::string fileName, int start, int size);
 RcppExport SEXP _rPDZ_readPDZ(SEXP fileNameSEXP, SEXP startSEXP, SEXP sizeSEXP) {
@@ -47,11 +71,50 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// readPDZ25eVCH
+float readPDZ25eVCH(std::string fileName);
+RcppExport SEXP _rPDZ_readPDZ25eVCH(SEXP fileNameSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string >::type fileName(fileNameSEXP);
+    rcpp_result_gen = Rcpp::wrap(readPDZ25eVCH(fileName));
+    return rcpp_result_gen;
+END_RCPP
+}
+// readPDZ25LiveTime
+float readPDZ25LiveTime(std::string fileName);
+RcppExport SEXP _rPDZ_readPDZ25LiveTime(SEXP fileNameSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string >::type fileName(fileNameSEXP);
+    rcpp_result_gen = Rcpp::wrap(readPDZ25LiveTime(fileName));
+    return rcpp_result_gen;
+END_RCPP
+}
+// readPDZ25FloatFetch
+float readPDZ25FloatFetch(std::string fileName, int position);
+RcppExport SEXP _rPDZ_readPDZ25FloatFetch(SEXP fileNameSEXP, SEXP positionSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string >::type fileName(fileNameSEXP);
+    Rcpp::traits::input_parameter< int >::type position(positionSEXP);
+    rcpp_result_gen = Rcpp::wrap(readPDZ25FloatFetch(fileName, position));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_rPDZ_readPDZ24", (DL_FUNC) &_rPDZ_readPDZ24, 3},
+    {"_rPDZ_readPDZ24FloatFetch", (DL_FUNC) &_rPDZ_readPDZ24FloatFetch, 2},
+    {"_rPDZ_readPDZ24DoubleFetch", (DL_FUNC) &_rPDZ_readPDZ24DoubleFetch, 2},
     {"_rPDZ_readPDZ", (DL_FUNC) &_rPDZ_readPDZ, 3},
     {"_rPDZ_readPDZ25", (DL_FUNC) &_rPDZ_readPDZ25, 1},
+    {"_rPDZ_readPDZ25eVCH", (DL_FUNC) &_rPDZ_readPDZ25eVCH, 1},
+    {"_rPDZ_readPDZ25LiveTime", (DL_FUNC) &_rPDZ_readPDZ25LiveTime, 1},
+    {"_rPDZ_readPDZ25FloatFetch", (DL_FUNC) &_rPDZ_readPDZ25FloatFetch, 2},
     {NULL, NULL, 0}
 };
 
