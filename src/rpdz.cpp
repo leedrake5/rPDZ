@@ -13,18 +13,30 @@
 
 using namespace Rcpp;
 // [[Rcpp::export()]]
-NumericVector readPDZ24(std::string fileName, int start, int size) {
-    uint32_t a[size];
-    std::ifstream file (fileName.c_str(), std::ios::in | std::ios::binary);
-    if (file.is_open()) {
-        file.seekg(start);
-        file.read ((char*)&a, sizeof(a));
-        file.close();
+std::vector<float> readPDZ24(const std::string& fileName) {
+    float spectrum[2048] = {0.0f}; // Initialize to zeros
+    
+    std::ifstream file(fileName, std::ios::binary);
+
+    if (!file.is_open()) {
+        Rcpp::stop("Could not open file");
     }
-    NumericVector res(size);
-    for (unsigned long long int i = 0; i < size; ++i)
-    res(i) = (a[i]) ;
-    return res;
+
+    // Seek to the position where spectrum starts (361)
+    file.seekg(478L, std::ios_base::beg);
+    
+    for (int i = 0; i < 2048; ++i) {
+        uint32_t count_value;
+        file.read(reinterpret_cast<char*>(&count_value), sizeof(uint32_t));
+        
+        if (!file) { Rcpp::stop("Failed to read record"); }
+
+        spectrum[i] = static_cast<float>(count_value) / 65536.0f;
+    }
+    
+    file.close();
+
+    return std::vector<float>(spectrum, spectrum + 2048);
 }
 
 // [[Rcpp::export]]
@@ -77,10 +89,10 @@ NumericVector readPDZ(std::string fileName, int start, int size) {
 }
 
 // [[Rcpp::export]]
-std::vector<uint32_t> readPDZ25(std::string fileName) {
+std::vector<float> readPDZ25(std::string fileName) {
     short recordID;
     int recordLength;
-    uint32_t spectrum[2048] = {0}; // Initialize to zeros
+    float spectrum[2048] = {0.0f}; // Initialize to zeros
     std::vector<char> record(100000000); // This is okay
     
     std::ifstream file(fileName, std::ios::binary);
@@ -113,7 +125,8 @@ std::vector<uint32_t> readPDZ25(std::string fileName) {
             }
 
             for (int i = 0; i < 2048; i++) {
-                spectrum[i] = *reinterpret_cast<uint32_t*>(record.data() + spOff + i * sizeof(uint32_t));
+                uint32_t count_value = *reinterpret_cast<uint32_t*>(record.data() + spOff + i * sizeof(uint32_t));
+                spectrum[i] = static_cast<float>(count_value) / 65536.0f;
             }
             
             break;  // Exit the loop once you've found and read the spectrum
@@ -126,7 +139,7 @@ std::vector<uint32_t> readPDZ25(std::string fileName) {
     }
     file.close();
 
-    return std::vector<uint32_t>(spectrum, spectrum + 2048);
+    return std::vector<float>(spectrum, spectrum + 2048);
 }
 
 // [[Rcpp::export]]

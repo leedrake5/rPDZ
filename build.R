@@ -20,6 +20,9 @@ R CMD build rPDZ
 ###Windows
 devtools::build_win(pkg="~/GitHub/rPDZ")
 
+###binary build
+R CMD INSTALL --build rPDZ_1.3.tar.gz
+
 
 ###Test
 install.packages("/Users/lee/GitHub/rPDZ/Packages/rPDZ_1.2.tar.gz", type="source", repos=NULL)
