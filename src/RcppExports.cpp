@@ -10,14 +10,28 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
+// readPDZManual
+NumericVector readPDZManual(std::string fileName, int start, int size);
+RcppExport SEXP _rPDZ_readPDZManual(SEXP fileNameSEXP, SEXP startSEXP, SEXP sizeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string >::type fileName(fileNameSEXP);
+    Rcpp::traits::input_parameter< int >::type start(startSEXP);
+    Rcpp::traits::input_parameter< int >::type size(sizeSEXP);
+    rcpp_result_gen = Rcpp::wrap(readPDZManual(fileName, start, size));
+    return rcpp_result_gen;
+END_RCPP
+}
 // readPDZ24
-std::vector<float> readPDZ24(const std::string& fileName);
-RcppExport SEXP _rPDZ_readPDZ24(SEXP fileNameSEXP) {
+std::vector<float> readPDZ24(const std::string& fileName, int start);
+RcppExport SEXP _rPDZ_readPDZ24(SEXP fileNameSEXP, SEXP startSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::string& >::type fileName(fileNameSEXP);
-    rcpp_result_gen = Rcpp::wrap(readPDZ24(fileName));
+    Rcpp::traits::input_parameter< int >::type start(startSEXP);
+    rcpp_result_gen = Rcpp::wrap(readPDZ24(fileName, start));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -105,7 +119,8 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_rPDZ_readPDZ24", (DL_FUNC) &_rPDZ_readPDZ24, 1},
+    {"_rPDZ_readPDZManual", (DL_FUNC) &_rPDZ_readPDZManual, 3},
+    {"_rPDZ_readPDZ24", (DL_FUNC) &_rPDZ_readPDZ24, 2},
     {"_rPDZ_readPDZ24FloatFetch", (DL_FUNC) &_rPDZ_readPDZ24FloatFetch, 2},
     {"_rPDZ_readPDZ24DoubleFetch", (DL_FUNC) &_rPDZ_readPDZ24DoubleFetch, 2},
     {"_rPDZ_readPDZ", (DL_FUNC) &_rPDZ_readPDZ, 3},

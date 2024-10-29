@@ -3,27 +3,32 @@
 \alias{rPDZ}
 \docType{package}
 \title{
-  A utility for reading PDZ files into R
+  A short title line describing what the package does
 }
 \description{
-  This simple package allows X-ray fluorescence (XRF) spectra to be read into R
+  A more detailed description of what the package does. A length
+  of about one to five lines is recommended.
 }
 \details{
-  There are two types of PDZ files, version 24 and 25. The first is straightforward to read in, the second requires flexible parsing of the binary.
+  This section should provide a more detailed overview of how to use the
+  package, including the most important functions.
 }
 \author{
-Lee Drake, b.lee.drake@gmail.com
+Your Name, email optional.
 
-Maintainer: Lee Drake <b.lee.drake@gmail.com>
+Maintainer: Your Name <your@email.com>
 }
 \references{
-  https://www.xrf.guru
+  This optional section can contain literature or other references for
+  background information.
 }
 \keyword{ package }
 \seealso{
   Optional links to other man pages
 }
 \examples{
-  \dontrun{ 
+  \dontrun{
+     ## Optional simple examples of the most important functions
+     ## These can be in \dontrun{} and \donttest{} blocks.   
   }
 }

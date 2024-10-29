@@ -11,9 +11,26 @@
 #include <vector>
 #include <cstdint>
 
+
 using namespace Rcpp;
 // [[Rcpp::export()]]
-std::vector<float> readPDZ24(const std::string& fileName) {
+NumericVector readPDZManual(std::string fileName, int start, int size) {
+    uint32_t a[size];
+    std::ifstream file (fileName.c_str(), std::ios::in | std::ios::binary);
+    if (file.is_open()) {
+        file.seekg(start);
+        file.read ((char*)&a, sizeof(a));
+        file.close();
+    }
+    NumericVector res(size);
+    for (unsigned long long int i = 0; i < size; ++i)
+    res(i) = (a[i]) ;
+    return res;
+}
+
+using namespace Rcpp;
+//  [[Rcpp::export()]]
+std::vector<float> readPDZ24(const std::string& fileName, int start) {
     float spectrum[2048] = {0.0f}; // Initialize to zeros
     
     std::ifstream file(fileName, std::ios::binary);
@@ -22,14 +39,16 @@ std::vector<float> readPDZ24(const std::string& fileName) {
         Rcpp::stop("Could not open file");
     }
 
-    // Seek to the position where spectrum starts (361)
-    file.seekg(478L, std::ios_base::beg);
+    // Seek to the position where spectrum starts
+    file.seekg(start, std::ios_base::beg);
     
     for (int i = 0; i < 2048; ++i) {
         uint32_t count_value;
         file.read(reinterpret_cast<char*>(&count_value), sizeof(uint32_t));
         
-        if (!file) { Rcpp::stop("Failed to read record"); }
+        if (!file) {
+            Rcpp::stop("Failed to read record");
+        }
 
         spectrum[i] = static_cast<float>(count_value) / 65536.0f;
     }
