@@ -4,7 +4,7 @@ library(Rcpp)
 Rcpp::Rcpp.package.skeleton("rPDZ")
 
 
-###put .cpp files in and edit Description
+###put .cpp files in
 setwd("/Users/lee/GitHub/rPDZ/rPDZ")
 tools::package_native_routine_registration_skeleton(".", character_only = FALSE)
 Rcpp::compileAttributes(verbose=TRUE)
@@ -18,12 +18,11 @@ R CMD build rPDZ
 ###back in R
 
 ###Windows
-devtools::build_win(pkg="~/GitHub/rPDZ/rPDZ")
-
+devtools::build_win(pkg="~/GitHub/rPDZ")
 
 ###binary build
-R CMD INSTALL --build rPDZ_1.6.tar.gz
+R CMD INSTALL --build rPDZ_1.3.tar.gz
 
 
 ###Test
-install.packages("/Users/lee/GitHub/rPDZ/Source Package/rPDZ_1.6.tar.gz", type="source", repos=NULL)
+install.packages("/Users/lee/GitHub/rPDZ/Packages/rPDZ_1.2.tar.gz", type="source", repos=NULL)
