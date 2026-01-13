@@ -11,7 +11,7 @@ Rcpp::compileAttributes(verbose=TRUE)
 
 
 ####in Terminal - this step creates your R package
-cd "~/GitHub/rPDZ"
+cd ~/GitHub/rPDZ
 R CMD build rPDZ
 
 

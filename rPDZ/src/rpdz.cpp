@@ -6,801 +6,14 @@
 //  Updated by Lee Drake with help from Frits Vossman on 10/05/2023
 
 //
-// [[Rcpp::depends(Rcpp)]]
 #include <Rcpp.h>
 #include <fstream>
-#include <string>
 #include <vector>
-#include <map>
 #include <cstdint>
-#include <cstring>
-#include <locale>
-#include <codecvt>
 
 using namespace Rcpp;
-// Function to convert UTF-16 string to UTF-8
-std::string utf16_to_utf8(const std::u16string& u16str) {
-    // Note: std::wstring_convert is deprecated in C++17 and may be removed in future versions.
-    // This code works for now, but consider using other libraries for future-proofing.
-    std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> convert;
-    return convert.to_bytes(u16str);
-}
-
-// Functions to read data in little-endian format
-uint16_t readLEUInt16(std::istream& stream) {
-    uint8_t bytes[2];
-    stream.read(reinterpret_cast<char*>(bytes), 2);
-    if (!stream) {
-        throw std::runtime_error("Failed to read uint16_t");
-    }
-    return (uint16_t)bytes[0] | ((uint16_t)bytes[1] << 8);
-}
-
-uint32_t readLEUInt32(std::istream& stream) {
-    uint8_t bytes[4];
-    stream.read(reinterpret_cast<char*>(bytes), 4);
-    if (!stream) {
-        throw std::runtime_error("Failed to read uint32_t");
-    }
-    return (uint32_t)bytes[0] |
-           ((uint32_t)bytes[1] << 8) |
-           ((uint32_t)bytes[2] << 16) |
-           ((uint32_t)bytes[3] << 24);
-}
-
-int16_t readLEInt16(std::istream& stream) {
-    return (int16_t)readLEUInt16(stream);
-}
-
-int32_t readLEInt32(std::istream& stream) {
-    return (int32_t)readLEUInt32(stream);
-}
-
-uint8_t readUInt8(std::istream& stream) {
-    uint8_t value;
-    stream.read(reinterpret_cast<char*>(&value), 1);
-    if (!stream) {
-        throw std::runtime_error("Failed to read uint8_t");
-    }
-    return value;
-}
-
-float readLEFloat(std::istream& stream) {
-    uint32_t temp = readLEUInt32(stream);
-    float value;
-    std::memcpy(&value, &temp, sizeof(float));
-    return value;
-}
-
-std::string readLEWString(std::istream& stream, uint32_t length) {
-    if (length == 0) {
-        return "";
-    }
-    size_t numChars = length / 2;
-    std::u16string u16str(numChars, '\0');
-    for (size_t i = 0; i < numChars; ++i) {
-        uint16_t ch = readLEUInt16(stream);
-        u16str[i] = ch;
-    }
-    // Convert UTF-16 to UTF-8
-    std::string utf8str = utf16_to_utf8(u16str);
-    return utf8str;
-}
-
-// [[Rcpp::export]]
-Rcpp::List readPDZ25(std::string fileName) {
-    std::ifstream file(fileName, std::ios::binary);
-
-    if (!file.is_open()) {
-        Rcpp::stop("Could not open file");
-    }
-
-    // Function to read data from the file
-    auto readBytes = [&](char* buffer, size_t size) {
-        file.read(buffer, size);
-        if (!file) {
-            Rcpp::stop("Failed to read from file");
-        }
-    };
-
-    // Main data structure to store records
-    Rcpp::List records;
-
-    // Read the initial 20 bytes (file header)
-    char initialHeader[20];
-    readBytes(initialHeader, 20);
-
-    // Main loop to read records
-    while (file.peek() != EOF) {
-        uint16_t RecordType = 0;
-        uint32_t DataLength = 0;
-        try {
-            // Read RecordType (uint16_t) and DataLength (uint32_t)
-            RecordType = readLEUInt16(file);
-            DataLength = readLEUInt32(file);
-
-            // Debugging: Print RecordType and DataLength
-            Rcpp::Rcout << "Reading RecordType: " << RecordType << ", DataLength: " << DataLength << std::endl;
-
-            // Read the entire record data into a buffer
-            std::vector<char> recordData(DataLength);
-            readBytes(recordData.data(), DataLength);
-
-            // Create a memory stream from the buffer
-            std::istringstream recordStream(std::string(recordData.begin(), recordData.end()), std::ios::binary);
-
-            // Create a list to store fields for this record
-            Rcpp::List recordFields;
-
-            if (RecordType == 1) {
-                // RecordType 1 Parsing
-                uint32_t SerialNumberLength = 0;
-                std::string SerialNumber;
-                uint32_t BuildNumberLength = 0;
-                std::string BuildNumber;
-                uint8_t TubeTargetElement = 0;
-                uint8_t AnodeTakeoffAngle = 0;
-                uint8_t SampleIncidenceAngle = 0;
-                uint8_t SampleTakeoffAngle = 0;
-                int16_t BeThickness = 0;
-                uint32_t DetectorTypeLength = 0;
-                std::string DetectorType;
-                uint32_t TubeTypeLength = 0;
-                std::string TubeType;
-                uint8_t HW_SpotSize = 0;
-                uint8_t SW_SpotSize = 0;
-                uint32_t CollimatorTypeLength = 0;
-                std::string CollimatorType;
-                uint32_t NumVersions = 0;
-                Rcpp::List FirmwareVersions;
-
-                try {
-                    SerialNumberLength = readLEUInt32(recordStream);
-                    Rcpp::Rcout << "SerialNumberLength: " << SerialNumberLength << std::endl;
-                    SerialNumber = readLEWString(recordStream, SerialNumberLength);
-                    Rcpp::Rcout << "SerialNumber: " << SerialNumber << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read SerialNumber: " << ex.what() << std::endl;
-                }
-
-                try {
-                    BuildNumberLength = readLEUInt32(recordStream);
-                    Rcpp::Rcout << "BuildNumberLength: " << BuildNumberLength << std::endl;
-                    BuildNumber = readLEWString(recordStream, BuildNumberLength);
-                    Rcpp::Rcout << "BuildNumber: " << BuildNumber << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read BuildNumber: " << ex.what() << std::endl;
-                }
-
-                try {
-                    TubeTargetElement = readUInt8(recordStream);
-                    Rcpp::Rcout << "TubeTargetElement: " << static_cast<int>(TubeTargetElement) << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read TubeTargetElement: " << ex.what() << std::endl;
-                }
-
-                try {
-                    AnodeTakeoffAngle = readUInt8(recordStream);
-                    Rcpp::Rcout << "AnodeTakeoffAngle: " << static_cast<int>(AnodeTakeoffAngle) << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read AnodeTakeoffAngle: " << ex.what() << std::endl;
-                }
-
-                try {
-                    SampleIncidenceAngle = readUInt8(recordStream);
-                    Rcpp::Rcout << "SampleIncidenceAngle: " << static_cast<int>(SampleIncidenceAngle) << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read SampleIncidenceAngle: " << ex.what() << std::endl;
-                }
-
-                try {
-                    SampleTakeoffAngle = readUInt8(recordStream);
-                    Rcpp::Rcout << "SampleTakeoffAngle: " << static_cast<int>(SampleTakeoffAngle) << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read SampleTakeoffAngle: " << ex.what() << std::endl;
-                }
-
-                try {
-                    BeThickness = readLEInt16(recordStream);
-                    Rcpp::Rcout << "BeThickness: " << BeThickness << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read BeThickness: " << ex.what() << std::endl;
-                }
-
-                try {
-                    DetectorTypeLength = readLEUInt32(recordStream);
-                    Rcpp::Rcout << "DetectorTypeLength: " << DetectorTypeLength << std::endl;
-                    DetectorType = readLEWString(recordStream, DetectorTypeLength);
-                    Rcpp::Rcout << "DetectorType: " << DetectorType << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read DetectorType: " << ex.what() << std::endl;
-                }
-
-                try {
-                    TubeTypeLength = readLEUInt32(recordStream);
-                    Rcpp::Rcout << "TubeTypeLength: " << TubeTypeLength << std::endl;
-                    TubeType = readLEWString(recordStream, TubeTypeLength);
-                    Rcpp::Rcout << "TubeType: " << TubeType << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read TubeType: " << ex.what() << std::endl;
-                }
-
-                try {
-                    HW_SpotSize = readUInt8(recordStream);
-                    Rcpp::Rcout << "HW_SpotSize: " << static_cast<int>(HW_SpotSize) << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read HW_SpotSize: " << ex.what() << std::endl;
-                }
-
-                try {
-                    SW_SpotSize = readUInt8(recordStream);
-                    Rcpp::Rcout << "SW_SpotSize: " << static_cast<int>(SW_SpotSize) << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read SW_SpotSize: " << ex.what() << std::endl;
-                }
-
-                try {
-                    CollimatorTypeLength = readLEUInt32(recordStream);
-                    Rcpp::Rcout << "CollimatorTypeLength: " << CollimatorTypeLength << std::endl;
-                    CollimatorType = readLEWString(recordStream, CollimatorTypeLength);
-                    Rcpp::Rcout << "CollimatorType: " << CollimatorType << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read CollimatorType: " << ex.what() << std::endl;
-                }
-
-                try {
-                    NumVersions = readLEUInt32(recordStream);
-                    Rcpp::Rcout << "NumVersions: " << NumVersions << std::endl;
-                    FirmwareVersions = Rcpp::List(NumVersions);
-                    for (uint32_t i = 0; i < NumVersions; ++i) {
-                        uint16_t RecordNumber = 0;
-                        uint32_t VersionLength = 0;
-                        std::string Version;
-                        try {
-                            RecordNumber = readLEUInt16(recordStream);
-                            Rcpp::Rcout << "Firmware RecordNumber: " << RecordNumber << std::endl;
-                            VersionLength = readLEUInt32(recordStream);
-                            Rcpp::Rcout << "Firmware VersionLength: " << VersionLength << std::endl;
-                            Version = readLEWString(recordStream, VersionLength);
-                            Rcpp::Rcout << "Firmware Version: " << Version << std::endl;
-                            FirmwareVersions[i] = Rcpp::List::create(
-                                Rcpp::Named("RecordNumber") = RecordNumber,
-                                Rcpp::Named("Version") = Version
-                            );
-                        } catch (std::exception& ex) {
-                            Rcpp::Rcerr << "Failed to read Firmware Version " << i << ": " << ex.what() << std::endl;
-                        }
-                    }
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read FirmwareVersions: " << ex.what() << std::endl;
-                }
-
-                // Store fields in the list
-                recordFields["RecordType"] = RecordType;
-                recordFields["SerialNumber"] = SerialNumber;
-                recordFields["BuildNumber"] = BuildNumber;
-                recordFields["TubeTargetElement"] = TubeTargetElement;
-                recordFields["AnodeTakeoffAngle"] = AnodeTakeoffAngle;
-                recordFields["SampleIncidenceAngle"] = SampleIncidenceAngle;
-                recordFields["SampleTakeoffAngle"] = SampleTakeoffAngle;
-                recordFields["BeThickness"] = BeThickness;
-                recordFields["DetectorType"] = DetectorType;
-                recordFields["TubeType"] = TubeType;
-                recordFields["HW_SpotSize"] = HW_SpotSize;
-                recordFields["SW_SpotSize"] = SW_SpotSize;
-                recordFields["CollimatorType"] = CollimatorType;
-                recordFields["FirmwareVersions"] = FirmwareVersions;
-
-            } else if (RecordType == 2) {
-                // RecordType 2 Parsing
-                uint32_t NumberOfPhases = 0;
-                uint32_t RawCounts = 0;
-                uint32_t ValidCounts = 0;
-                uint32_t ValidCountsInRange = 0;
-                uint32_t ResetCounts = 0;
-                float TotalRealTime = 0.0;
-                float TotalPacketTime = 0.0;
-                float TotalDead = 0.0;
-                float TotalReset = 0.0;
-                float TotalLive = 0.0;
-                float ElapsedTime = 0.0;
-                uint32_t AppNameLength = 0;
-                std::string ApplicationName;
-                uint32_t AppPNLength = 0;
-                std::string ApplicationPartNumber;
-
-                try {
-                    NumberOfPhases = readLEUInt32(recordStream);
-                    Rcpp::Rcout << "NumberOfPhases: " << NumberOfPhases << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read NumberOfPhases: " << ex.what() << std::endl;
-                }
-
-                try {
-                    RawCounts = readLEUInt32(recordStream);
-                    Rcpp::Rcout << "RawCounts: " << RawCounts << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read RawCounts: " << ex.what() << std::endl;
-                }
-
-                try {
-                    ValidCounts = readLEUInt32(recordStream);
-                    Rcpp::Rcout << "ValidCounts: " << ValidCounts << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read ValidCounts: " << ex.what() << std::endl;
-                }
-
-                try {
-                    ValidCountsInRange = readLEUInt32(recordStream);
-                    Rcpp::Rcout << "ValidCountsInRange: " << ValidCountsInRange << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read ValidCountsInRange: " << ex.what() << std::endl;
-                }
-
-                try {
-                    ResetCounts = readLEUInt32(recordStream);
-                    Rcpp::Rcout << "ResetCounts: " << ResetCounts << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read ResetCounts: " << ex.what() << std::endl;
-                }
-
-                try {
-                    TotalRealTime = readLEFloat(recordStream);
-                    Rcpp::Rcout << "TotalRealTime: " << TotalRealTime << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read TotalRealTime: " << ex.what() << std::endl;
-                }
-
-                try {
-                    TotalPacketTime = readLEFloat(recordStream);
-                    Rcpp::Rcout << "TotalPacketTime: " << TotalPacketTime << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read TotalPacketTime: " << ex.what() << std::endl;
-                }
-
-                try {
-                    TotalDead = readLEFloat(recordStream);
-                    Rcpp::Rcout << "TotalDead: " << TotalDead << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read TotalDead: " << ex.what() << std::endl;
-                }
-
-                try {
-                    TotalReset = readLEFloat(recordStream);
-                    Rcpp::Rcout << "TotalReset: " << TotalReset << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read TotalReset: " << ex.what() << std::endl;
-                }
-
-                try {
-                    TotalLive = readLEFloat(recordStream);
-                    Rcpp::Rcout << "TotalLive: " << TotalLive << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read TotalLive: " << ex.what() << std::endl;
-                }
-
-                try {
-                    ElapsedTime = readLEFloat(recordStream);
-                    Rcpp::Rcout << "ElapsedTime: " << ElapsedTime << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read ElapsedTime: " << ex.what() << std::endl;
-                }
-
-                try {
-                    AppNameLength = readLEUInt32(recordStream);
-                    Rcpp::Rcout << "ApplicationNameLength: " << AppNameLength << std::endl;
-                    ApplicationName = readLEWString(recordStream, AppNameLength);
-                    Rcpp::Rcout << "ApplicationName: " << ApplicationName << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read ApplicationName: " << ex.what() << std::endl;
-                }
-
-                try {
-                    AppPNLength = readLEUInt32(recordStream);
-                    Rcpp::Rcout << "ApplicationPartNumberLength: " << AppPNLength << std::endl;
-                    ApplicationPartNumber = readLEWString(recordStream, AppPNLength);
-                    Rcpp::Rcout << "ApplicationPartNumber: " << ApplicationPartNumber << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read ApplicationPartNumber: " << ex.what() << std::endl;
-                }
-
-                // Store fields in the list
-                recordFields["RecordType"] = RecordType;
-                recordFields["NumberOfPhases"] = NumberOfPhases;
-                recordFields["RawCounts"] = RawCounts;
-                recordFields["ValidCounts"] = ValidCounts;
-                recordFields["ValidCountsInRange"] = ValidCountsInRange;
-                recordFields["ResetCounts"] = ResetCounts;
-                recordFields["TotalRealTime"] = TotalRealTime;
-                recordFields["TotalPacketTime"] = TotalPacketTime;
-                recordFields["TotalDead"] = TotalDead;
-                recordFields["TotalReset"] = TotalReset;
-                recordFields["TotalLive"] = TotalLive;
-                recordFields["ElapsedTime"] = ElapsedTime;
-                recordFields["ApplicationName"] = ApplicationName;
-                recordFields["ApplicationPartNumber"] = ApplicationPartNumber;
-
-            } else if (RecordType == 3) {
-                // RecordType 3 Parsing
-                uint32_t PhaseNumber = 0;
-                uint32_t RawCounts = 0;
-                uint32_t ValidCounts = 0;
-                uint32_t ValidCountsInRange = 0;
-                uint32_t ResetCounts = 0;
-                float TimeSinceTrigger = 0.0;
-                float TotalPacketTime = 0.0;
-                float TotalDead = 0.0;
-                float TotalReset = 0.0;
-                float TotalLive = 0.0;
-                float TubeVoltage = 0.0;
-                float TubeCurrent = 0.0;
-                int16_t Filter1Element = 0;
-                int16_t Filter1Thickness = 0;
-                int16_t Filter2Element = 0;
-                int16_t Filter2Thickness = 0;
-                int16_t Filter3Element = 0;
-                int16_t Filter3Thickness = 0;
-                float FilterWheelNumber = 0.0;
-                float DetectorTemp = 0.0;
-                int16_t AmbientTemp = 0;
-                int32_t Vacuum = 0;
-                float EVPerChannel = 0.0;
-                int16_t GainDriftAlgorithm = 0;
-                float ChannelStart = 0.0;
-                // Skip SYSTEMTIME (16 bytes)
-                float AtmosphericPressure = 0.0;
-                int16_t NumChannels = 0;
-                int16_t NoseTemp = 0;
-                int16_t Environment = 0;
-                int16_t IlluminationLength = 0;
-                std::string Illumination;
-                int16_t NormalPacketStart = 0;
-                int16_t manualOffset = 24;
-                std::vector<uint32_t> SpectrumData;
-
-                try {
-                    PhaseNumber = readLEUInt32(recordStream);
-                    Rcpp::Rcout << "PhaseNumber: " << PhaseNumber << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read PhaseNumber: " << ex.what() << std::endl;
-                }
-
-                try {
-                    RawCounts = readLEUInt32(recordStream);
-                    Rcpp::Rcout << "RawCounts: " << RawCounts << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read RawCounts: " << ex.what() << std::endl;
-                }
-
-                try {
-                    ValidCounts = readLEUInt32(recordStream);
-                    Rcpp::Rcout << "ValidCounts: " << ValidCounts << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read ValidCounts: " << ex.what() << std::endl;
-                }
-
-                try {
-                    ValidCountsInRange = readLEUInt32(recordStream);
-                    Rcpp::Rcout << "ValidCountsInRange: " << ValidCountsInRange << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read ValidCountsInRange: " << ex.what() << std::endl;
-                }
-
-                try {
-                    ResetCounts = readLEUInt32(recordStream);
-                    Rcpp::Rcout << "ResetCounts: " << ResetCounts << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read ResetCounts: " << ex.what() << std::endl;
-                }
-
-                try {
-                    TimeSinceTrigger = readLEFloat(recordStream);
-                    Rcpp::Rcout << "TimeSinceTrigger: " << TimeSinceTrigger << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read TimeSinceTrigger: " << ex.what() << std::endl;
-                }
-
-                try {
-                    TotalPacketTime = readLEFloat(recordStream);
-                    Rcpp::Rcout << "TotalPacketTime: " << TotalPacketTime << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read TotalPacketTime: " << ex.what() << std::endl;
-                }
-
-                try {
-                    TotalDead = readLEFloat(recordStream);
-                    Rcpp::Rcout << "TotalDead: " << TotalDead << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read TotalDead: " << ex.what() << std::endl;
-                }
-
-                try {
-                    TotalReset = readLEFloat(recordStream);
-                    Rcpp::Rcout << "TotalReset: " << TotalReset << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read TotalReset: " << ex.what() << std::endl;
-                }
-
-                try {
-                    TotalLive = readLEFloat(recordStream);
-                    Rcpp::Rcout << "TotalLive: " << TotalLive << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read TotalLive: " << ex.what() << std::endl;
-                }
-
-                try {
-                    TubeVoltage = readLEFloat(recordStream);
-                    Rcpp::Rcout << "TubeVoltage: " << TubeVoltage << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read TubeVoltage: " << ex.what() << std::endl;
-                }
-
-                try {
-                    TubeCurrent = readLEFloat(recordStream);
-                    Rcpp::Rcout << "TubeCurrent: " << TubeCurrent << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read TubeCurrent: " << ex.what() << std::endl;
-                }
-
-                try {
-                    Filter1Element = readLEInt16(recordStream);
-                    Rcpp::Rcout << "Filter1Element: " << Filter1Element << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read Filter1Element: " << ex.what() << std::endl;
-                }
-
-                try {
-                    Filter1Thickness = readLEInt16(recordStream);
-                    Rcpp::Rcout << "Filter1Thickness: " << Filter1Thickness << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read Filter1Thickness: " << ex.what() << std::endl;
-                }
-
-                try {
-                    Filter2Element = readLEInt16(recordStream);
-                    Rcpp::Rcout << "Filter2Element: " << Filter2Element << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read Filter2Element: " << ex.what() << std::endl;
-                }
-
-                try {
-                    Filter2Thickness = readLEInt16(recordStream);
-                    Rcpp::Rcout << "Filter2Thickness: " << Filter2Thickness << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read Filter2Thickness: " << ex.what() << std::endl;
-                }
-
-                try {
-                    Filter3Element = readLEInt16(recordStream);
-                    Rcpp::Rcout << "Filter3Element: " << Filter3Element << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read Filter3Element: " << ex.what() << std::endl;
-                }
-
-                try {
-                    Filter3Thickness = readLEInt16(recordStream);
-                    Rcpp::Rcout << "Filter3Thickness: " << Filter3Thickness << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read Filter3Thickness: " << ex.what() << std::endl;
-                }
-
-                try {
-                    FilterWheelNumber = readLEInt16(recordStream);
-                    Rcpp::Rcout << "FilterWheelNumber: " << FilterWheelNumber << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read FilterWheelNumber: " << ex.what() << std::endl;
-                }
-
-                try {
-                    DetectorTemp = readLEFloat(recordStream);
-                    Rcpp::Rcout << "DetectorTemp: " << DetectorTemp << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read DetectorTemp: " << ex.what() << std::endl;
-                }
-                
-                try {
-                    AmbientTemp = readLEFloat(recordStream);
-                    Rcpp::Rcout << "AmbientTemp: " << AmbientTemp << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read AmbientTemp: " << ex.what() << std::endl;
-                }
-
-                try {
-                    Vacuum = readLEInt32(recordStream);
-                    Rcpp::Rcout << "Vacuum: " << Vacuum << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read Vacuum: " << ex.what() << std::endl;
-                }
-
-                try {
-                    EVPerChannel = readLEFloat(recordStream);
-                    Rcpp::Rcout << "EVPerChannel: " << EVPerChannel << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read EVPerChannel: " << ex.what() << std::endl;
-                }
-
-                try {
-                    GainDriftAlgorithm = readLEInt16(recordStream);
-                    Rcpp::Rcout << "GainDriftAlgorithm: " << GainDriftAlgorithm << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read GainDriftAlgorithm: " << ex.what() << std::endl;
-                }
-
-                try {
-                    ChannelStart = readLEFloat(recordStream);
-                    Rcpp::Rcout << "ChannelStart: " << ChannelStart << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read ChannelStart: " << ex.what() << std::endl;
-                }
-
-                // Skip SYSTEMTIME (16 bytes)
-                recordStream.seekg(16, std::ios_base::cur);
-
-                try {
-                    AtmosphericPressure = readLEFloat(recordStream);
-                    Rcpp::Rcout << "AtmosphericPressure: " << AtmosphericPressure << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read AtmosphericPressure: " << ex.what() << std::endl;
-                }
-
-                try {
-                    NumChannels = readLEInt16(recordStream);
-                    Rcpp::Rcout << "NumChannels: " << NumChannels << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read NumChannels: " << ex.what() << std::endl;
-                }
-
-                try {
-                    NoseTemp = readLEFloat(recordStream);
-                    Rcpp::Rcout << "NoseTemp: " << NoseTemp << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read NoseTemp: " << ex.what() << std::endl;
-                }
-
-                try {
-                    Environment = readLEInt16(recordStream);
-                    Rcpp::Rcout << "Environment: " << Environment << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read Environment: " << ex.what() << std::endl;
-                }
-
-                try {
-                    IlluminationLength = readLEUInt16(recordStream);
-                    Rcpp::Rcout << "IlluminationLength: " << IlluminationLength << std::endl;
-                    Illumination = readLEWString(recordStream, IlluminationLength);
-                    Rcpp::Rcout << "Illumination: " << Illumination << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read Illumination: " << ex.what() << std::endl;
-                }
-
-                try {
-                    NormalPacketStart = readLEInt16(recordStream);
-                    Rcpp::Rcout << "NormalPacketStart: " << NormalPacketStart << std::endl;
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read NormalPacketStart: " << ex.what() << std::endl;
-                }
-
-                // Read SpectrumData
-                try {
-                    Rcpp::Rcout << "Reading SpectrumData with NumChannels: " << NumChannels << std::endl;
-
-                    // Initialize SpectrumData with zeros
-                    SpectrumData.resize(NumChannels, 0);
-
-                    // Calculate the number of counts to read
-                    int countsToRead = NumChannels;
-
-                    // Adjust the stream position based on manualOffset
-                    // Calculate the byte offset
-                    std::streamoff byteOffset = manualOffset * sizeof(uint32_t);
-
-                    // Move the stream position
-                    if (byteOffset != 0) {
-                        if (byteOffset > 0) {
-                            // Move forward
-                            recordStream.seekg(byteOffset, std::ios_base::cur);
-                        } else {
-                            // Move backward
-                            recordStream.seekg(byteOffset, std::ios_base::cur);
-                            if (recordStream.tellg() < 0) {
-                                Rcpp::Rcerr << "Cannot seek before the beginning of the stream." << std::endl;
-                                recordStream.seekg(0, std::ios_base::beg);
-                            }
-                        }
-                    }
-
-                    // Read counts from the stream
-                    for (int i = 0; i < countsToRead; ++i) {
-                        if (recordStream.eof()) {
-                            Rcpp::Rcerr << "End of stream reached while reading SpectrumData." << std::endl;
-                            break;
-                        }
-                        SpectrumData[i] = readLEUInt32(recordStream);
-                    }
-                } catch (std::exception& ex) {
-                    Rcpp::Rcerr << "Failed to read SpectrumData: " << ex.what() << std::endl;
-                }
-
-
-                // Store fields in the list
-                recordFields["RecordType"] = RecordType;
-                recordFields["PhaseNumber"] = PhaseNumber;
-                recordFields["RawCounts"] = RawCounts;
-                recordFields["ValidCounts"] = ValidCounts;
-                recordFields["ValidCountsInRange"] = ValidCountsInRange;
-                recordFields["ResetCounts"] = ResetCounts;
-                recordFields["TimeSinceTrigger"] = TimeSinceTrigger;
-                recordFields["TotalPacketTime"] = TotalPacketTime;
-                recordFields["TotalDead"] = TotalDead;
-                recordFields["TotalReset"] = TotalReset;
-                recordFields["TotalLive"] = TotalLive;
-                recordFields["TubeVoltage"] = TubeVoltage;
-                recordFields["TubeCurrent"] = TubeCurrent;
-                recordFields["Filter1Element"] = Filter1Element;
-                recordFields["Filter1Thickness"] = Filter1Thickness;
-                recordFields["Filter2Element"] = Filter2Element;
-                recordFields["Filter2Thickness"] = Filter2Thickness;
-                recordFields["Filter3Element"] = Filter3Element;
-                recordFields["Filter3Thickness"] = Filter3Thickness;
-                recordFields["FilterWheelNumber"] = FilterWheelNumber;
-                recordFields["DetectorTemp"] = DetectorTemp;
-                recordFields["AmbientTemp"] = AmbientTemp;
-                recordFields["Vacuum"] = Vacuum;
-                recordFields["EVPerChannel"] = EVPerChannel;
-                recordFields["GainDriftAlgorithm"] = GainDriftAlgorithm;
-                recordFields["ChannelStart"] = ChannelStart;
-                recordFields["AtmosphericPressure"] = AtmosphericPressure;
-                recordFields["NumChannels"] = NumChannels;
-                recordFields["NoseTemp"] = NoseTemp;
-                recordFields["Environment"] = Environment;
-                recordFields["Illumination"] = Illumination;
-                recordFields["NormalPacketStart"] = NormalPacketStart;
-                recordFields["SpectrumData"] = SpectrumData;
-            } else {
-                // For other RecordTypes, skip the data
-                file.seekg(DataLength, std::ios::cur);
-                Rcpp::Rcout << "Unhandled RecordType: " << RecordType << ". Skipping..." << std::endl;
-            }
-
-            // Add the record to the list
-            records.push_back(recordFields);
-        } catch (std::exception& ex) {
-            // Handle exceptions during parsing
-            Rcpp::Rcerr << "Error parsing RecordType " << RecordType << ": " << ex.what() << std::endl;
-            // Store an error message instead of the record
-            Rcpp::List errorRecord;
-            errorRecord["RecordType"] = RecordType;
-            errorRecord["Error"] = ex.what();
-            records.push_back(errorRecord);
-            // Continue to the next record
-            continue;
-        }
-    }
-
-    file.close();
-
-    return records;
-}
-
-
 // [[Rcpp::export()]]
-NumericVector readPDZManual(std::string fileName, int start, int size) {
-    uint32_t a[size];
-    std::ifstream file (fileName.c_str(), std::ios::in | std::ios::binary);
-    if (file.is_open()) {
-        file.seekg(start);
-        file.read ((char*)&a, sizeof(a));
-        file.close();
-    }
-    NumericVector res(size);
-    for (unsigned long long int i = 0; i < size; ++i)
-    res(i) = (a[i]) ;
-    return res;
-}
-
-using namespace Rcpp;
-//  [[Rcpp::export()]]
-std::vector<float> readPDZ24(const std::string& fileName, int start) {
+std::vector<float> readPDZ24(const std::string& fileName) {
     float spectrum[2048] = {0.0f}; // Initialize to zeros
     
     std::ifstream file(fileName, std::ios::binary);
@@ -809,20 +22,18 @@ std::vector<float> readPDZ24(const std::string& fileName, int start) {
         Rcpp::stop("Could not open file");
     }
 
-    // Seek to the position where spectrum starts
-    file.seekg(start, std::ios_base::beg);
+    // Seek to the position where spectrum starts (358 bytes header)
+    file.seekg(358L, std::ios_base::beg);
     
     for (int i = 0; i < 2048; ++i) {
         uint32_t count_value;
         file.read(reinterpret_cast<char*>(&count_value), sizeof(uint32_t));
         
-        if (!file) {
-            Rcpp::stop("Failed to read record");
-        }
+        if (!file) { Rcpp::stop("Failed to read record"); }
 
-        spectrum[i] = static_cast<float>(count_value) / 65536.0f;
+        spectrum[i] = static_cast<float>(count_value);
     }
-    
+
     file.close();
 
     return std::vector<float>(spectrum, spectrum + 2048);
@@ -878,7 +89,7 @@ NumericVector readPDZ(std::string fileName, int start, int size) {
 }
 
 // [[Rcpp::export]]
-std::vector<float> readPDZ25OG(std::string fileName) {
+std::vector<float> readPDZ25(std::string fileName) {
     short recordID;
     int recordLength;
     float spectrum[2048] = {0.0f}; // Initialize to zeros
@@ -915,7 +126,7 @@ std::vector<float> readPDZ25OG(std::string fileName) {
 
             for (int i = 0; i < 2048; i++) {
                 uint32_t count_value = *reinterpret_cast<uint32_t*>(record.data() + spOff + i * sizeof(uint32_t));
-                spectrum[i] = static_cast<float>(count_value) / 65536.0f;
+                spectrum[i] = static_cast<float>(count_value);
             }
             
             break;  // Exit the loop once you've found and read the spectrum
@@ -930,7 +141,6 @@ std::vector<float> readPDZ25OG(std::string fileName) {
 
     return std::vector<float>(spectrum, spectrum + 2048);
 }
-
 
 // [[Rcpp::export]]
 float readPDZ25eVCH(std::string fileName) {  // changed return type to float
@@ -1028,7 +238,7 @@ float readPDZ25FloatFetch(std::string fileName, int position) {  // changed retu
     int recordLength;
     float singleValue;  // to hold the single float value
     std::vector<char> record(10000000);  // This is okay
-    
+
     std::ifstream file(fileName, std::ios::binary);
 
     if (file.is_open()) {
@@ -1062,4 +272,713 @@ float readPDZ25FloatFetch(std::string fileName, int position) {  // changed retu
     }
 
     return singleValue;  // returning the single float value
+}
+
+// =============================================================================
+// NEW GENERALIZABLE PDZ FUNCTIONS (added 2026-01-12)
+// =============================================================================
+
+// PDZ Format Constants
+// These are for the "simple" PDZ format found in example files (not v25 record-based)
+const int PDZ_HEADER_SIZE = 358;           // Fixed header size in bytes
+const int PDZ_SPECTRUM_CHANNELS = 2048;    // Number of channels per spectrum
+const int PDZ_SPECTRUM_SIZE = 8192;        // 2048 * sizeof(uint32_t)
+const int PDZ_INTER_SPECTRUM_GAP = 192;    // Metadata between spectra in multi-spectrum files
+
+// Metadata Position Constants (simple_v2 format)
+//
+// eVCh (energy per channel calibration):
+//   Position 50 in main header (double, 8 bytes)
+//   SHARED across all spectra in the file
+//
+// Main header metadata (spectrum 0):
+//   Position 50:  eVCh (double, 8 bytes) - shared
+//   Position 162: Tube voltage in kV (float, 4 bytes)
+//   Position 354: LiveTime in seconds (float, 4 bytes)
+//
+// Inter-spectrum gap metadata (spectrum N, N>0):
+//   Gap block for spectrum N starts at: 8550 + (N-1) * (8192 + 192)
+//   Gap structure (offsets from gap start):
+//     Offset 152: DeadTime in seconds (float, 4 bytes)
+//     Offset 160: LiveTime in seconds (float, 4 bytes)
+//     Offset 164: Tube voltage in kV (float, 4 bytes)
+//     Offset 168: Filament current in uA (float, 4 bytes)
+//
+// Example positions for dual spectrum file:
+//   Spectrum 0: LiveTime=354, Voltage=162
+//   Spectrum 1: LiveTime=8710, Voltage=8714
+//
+const int PDZ_SPEC0_EVCH_POS = 50;         // eVCh position (shared, main header, double)
+const int PDZ_CAL_VALUE1_POS = 58;         // First calibration value (double)
+const int PDZ_CAL_VALUE2_POS = 66;         // Second calibration value (double)
+const int PDZ_FILTER1_ELEMENT_POS = 114;   // Filter 1 atomic number (byte)
+const int PDZ_FILTER1_THICK_POS = 116;     // Filter 1 thickness in um (short)
+const int PDZ_FILTER2_ELEMENT_POS = 118;   // Filter 2 atomic number (byte)
+const int PDZ_FILTER2_THICK_POS = 120;     // Filter 2 thickness in um (short)
+const int PDZ_FILTER3_ELEMENT_POS = 122;   // Filter 3 atomic number (byte)
+const int PDZ_FILTER3_THICK_POS = 124;     // Filter 3 thickness in um (short)
+const int PDZ_DATETIME_POS = 146;          // Acquisition datetime (SYSTEMTIME, 16 bytes)
+const int PDZ_SPEC0_VOLTAGE_POS = 162;     // Tube voltage position for spectrum 0 (float)
+const int PDZ_SPEC0_CURRENT_POS = 166;     // Tube current position for spectrum 0 (float)
+const int PDZ_SERIAL_POS = 186;            // Serial number string (ASCII, null-terminated)
+const int PDZ_SERIAL_LEN = 16;             // Max serial number length
+const int PDZ_SPEC0_REALTIME_POS = 342;    // RealTime/TotalPacketTime for spectrum 0 (float)
+const int PDZ_SPEC0_DEADTIME_POS = 346;    // DeadTime for spectrum 0 (float)
+const int PDZ_SPEC0_RESETTIME_POS = 350;   // ResetTime for spectrum 0 (float)
+const int PDZ_SPEC0_LIVETIME_POS = 354;    // LiveTime position for spectrum 0 (float)
+const int PDZ_GAP_REALTIME_OFFSET = 148;   // RealTime offset within inter-spectrum gap
+const int PDZ_GAP_DEADTIME_OFFSET = 152;   // DeadTime offset within inter-spectrum gap
+const int PDZ_GAP_RESETTIME_OFFSET = 156;  // ResetTime offset within inter-spectrum gap
+const int PDZ_GAP_LIVETIME_OFFSET = 160;   // LiveTime offset within inter-spectrum gap
+const int PDZ_GAP_VOLTAGE_OFFSET = 164;    // Tube voltage offset within inter-spectrum gap
+const int PDZ_GAP_CURRENT_OFFSET = 168;    // Filament current offset within inter-spectrum gap
+
+// [[Rcpp::export]]
+int getPDZSpectrumCount(const std::string& fileName) {
+    // Returns number of spectra in file (1 or 2, potentially more in future)
+    // Byte 1 of file contains spectrum count
+    std::ifstream file(fileName, std::ios::binary);
+
+    if (!file.is_open()) {
+        Rcpp::stop("Could not open file");
+    }
+
+    file.seekg(1);  // Spectrum count is at byte offset 1
+    unsigned char count;
+    file.read(reinterpret_cast<char*>(&count), 1);
+    file.close();
+
+    if (count < 1 || count > 10) {
+        // If value seems unreasonable, might be different format
+        Rcpp::warning("Unexpected spectrum count value: %d - file may be different format", count);
+    }
+
+    return static_cast<int>(count);
+}
+
+// [[Rcpp::export]]
+int getPDZFormatVersion(const std::string& fileName) {
+    // Returns format version byte (byte 0)
+    // Known values: 0x02 for simple format
+    std::ifstream file(fileName, std::ios::binary);
+
+    if (!file.is_open()) {
+        Rcpp::stop("Could not open file");
+    }
+
+    unsigned char version;
+    file.read(reinterpret_cast<char*>(&version), 1);
+    file.close();
+
+    return static_cast<int>(version);
+}
+
+// [[Rcpp::export]]
+bool isPDZv25Format(const std::string& fileName) {
+    // Check if file is v25 format by looking for "pdz25" marker
+    // v25 files have record-based structure with "pdz25" in unicode at start
+    std::ifstream file(fileName, std::ios::binary);
+
+    if (!file.is_open()) {
+        Rcpp::stop("Could not open file");
+    }
+
+    // Read first 30 bytes to check for markers
+    char buffer[30];
+    file.read(buffer, 30);
+    file.close();
+
+    // Check for "pdz25" in UTF-16LE (little endian unicode)
+    // "pdz25" = 0x70 0x00 0x64 0x00 0x7a 0x00 0x32 0x00 0x35 0x00
+    const unsigned char pdz25_marker[] = {0x70, 0x00, 0x64, 0x00, 0x7a, 0x00, 0x32, 0x00, 0x35, 0x00};
+
+    for (int offset = 0; offset <= 20; offset++) {
+        bool match = true;
+        for (int i = 0; i < 10 && match; i++) {
+            if (static_cast<unsigned char>(buffer[offset + i]) != pdz25_marker[i]) {
+                match = false;
+            }
+        }
+        if (match) return true;
+    }
+
+    return false;
+}
+
+// [[Rcpp::export]]
+std::vector<float> readPDZSpectrum(const std::string& fileName, int spectrumIndex) {
+    // Read spectrum by index (0-based) from PDZ file
+    // Works with both single and multi-spectrum files
+
+    float spectrum[PDZ_SPECTRUM_CHANNELS] = {0.0f};
+
+    std::ifstream file(fileName, std::ios::binary);
+    if (!file.is_open()) {
+        Rcpp::stop("Could not open file");
+    }
+
+    // Get spectrum count to validate index
+    file.seekg(1);
+    unsigned char count;
+    file.read(reinterpret_cast<char*>(&count), 1);
+
+    if (spectrumIndex < 0 || spectrumIndex >= count) {
+        file.close();
+        Rcpp::stop("Spectrum index %d out of range (file has %d spectra)", spectrumIndex, count);
+    }
+
+    // Calculate offset for requested spectrum
+    // First spectrum: offset 358
+    // Second spectrum: offset 358 + 8192 + 192 = 8742
+    // Formula: 358 + spectrumIndex * (8192 + 192)
+    long offset = PDZ_HEADER_SIZE + spectrumIndex * (PDZ_SPECTRUM_SIZE + PDZ_INTER_SPECTRUM_GAP);
+
+    file.seekg(offset, std::ios_base::beg);
+
+    for (int i = 0; i < PDZ_SPECTRUM_CHANNELS; ++i) {
+        uint32_t count_value;
+        file.read(reinterpret_cast<char*>(&count_value), sizeof(uint32_t));
+
+        if (!file) {
+            file.close();
+            Rcpp::stop("Failed to read channel %d of spectrum %d", i, spectrumIndex);
+        }
+
+        spectrum[i] = static_cast<float>(count_value);
+    }
+
+    file.close();
+    return std::vector<float>(spectrum, spectrum + PDZ_SPECTRUM_CHANNELS);
+}
+
+// [[Rcpp::export]]
+Rcpp::List getPDZInfo(const std::string& fileName) {
+    // Returns comprehensive info about PDZ file
+    std::ifstream file(fileName, std::ios::binary);
+
+    if (!file.is_open()) {
+        Rcpp::stop("Could not open file");
+    }
+
+    // Get file size
+    file.seekg(0, std::ios::end);
+    long fileSize = file.tellg();
+    file.seekg(0, std::ios::beg);
+
+    // Read header bytes
+    unsigned char header[10];
+    file.read(reinterpret_cast<char*>(header), 10);
+    file.close();
+
+    int formatVersion = header[0];
+    int spectrumCount = header[1];
+
+    // Check if v25 format
+    bool isV25 = isPDZv25Format(fileName);
+
+    // Determine format type string
+    std::string formatType;
+    if (isV25) {
+        formatType = "v25_record";
+    } else if (formatVersion == 2) {
+        formatType = "simple_v2";
+    } else {
+        formatType = "unknown";
+    }
+
+    return Rcpp::List::create(
+        Rcpp::Named("file_size") = fileSize,
+        Rcpp::Named("format_version") = formatVersion,
+        Rcpp::Named("spectrum_count") = spectrumCount,
+        Rcpp::Named("is_v25") = isV25,
+        Rcpp::Named("format_type") = formatType,
+        Rcpp::Named("header_size") = PDZ_HEADER_SIZE,
+        Rcpp::Named("channels_per_spectrum") = PDZ_SPECTRUM_CHANNELS
+    );
+}
+
+// [[Rcpp::export]]
+float getPDZLiveTime(const std::string& fileName, int spectrumIndex) {
+    // Returns LiveTime (in seconds) for the specified spectrum
+    //
+    // Position calculation:
+    //   Spectrum 0: position 354 (in main header)
+    //   Spectrum N (N>0): 8550 + (N-1) * 8384 + 160
+    //                   = 8710 + (N-1) * 8384
+    //
+    // Example positions:
+    //   Spectrum 0: 354
+    //   Spectrum 1: 8710
+    //   Spectrum 2: 17094 (if 3+ spectra exist)
+
+    std::ifstream file(fileName, std::ios::binary);
+    if (!file.is_open()) {
+        Rcpp::stop("Could not open file");
+    }
+
+    // Validate spectrum index
+    file.seekg(1);
+    unsigned char count;
+    file.read(reinterpret_cast<char*>(&count), 1);
+
+    if (spectrumIndex < 0 || spectrumIndex >= count) {
+        file.close();
+        Rcpp::stop("Spectrum index %d out of range (file has %d spectra)", spectrumIndex, count);
+    }
+
+    // Calculate position based on spectrum index
+    long position;
+    if (spectrumIndex == 0) {
+        position = PDZ_SPEC0_LIVETIME_POS;  // 354
+    } else {
+        // Inter-spectrum metadata block starts after first spectrum ends
+        // Block for spectrum N starts at: 8550 + (N-1) * (8192 + 192)
+        long blockStart = PDZ_HEADER_SIZE + PDZ_SPECTRUM_SIZE +
+                          (spectrumIndex - 1) * (PDZ_SPECTRUM_SIZE + PDZ_INTER_SPECTRUM_GAP);
+        position = blockStart + PDZ_GAP_LIVETIME_OFFSET;  // +160
+    }
+
+    file.seekg(position);
+    float liveTime;
+    file.read(reinterpret_cast<char*>(&liveTime), sizeof(float));
+
+    if (!file) {
+        file.close();
+        Rcpp::stop("Failed to read LiveTime at position %ld", position);
+    }
+
+    file.close();
+    return liveTime;
+}
+
+// [[Rcpp::export]]
+double getPDZeVCh(const std::string& fileName, int spectrumIndex) {
+    // Returns eVCh (energy per channel calibration) for the specified spectrum
+    //
+    // In simple_v2 format, eVCh is stored as a double at position 50 in the
+    // main header. This value is SHARED across all spectra in the file.
+    //
+    // Evidence from manufacturer CSV exports shows that both spectra in a dual
+    // file report the same eVCh value, confirming the shared calibration.
+    //
+    // Behavior:
+    //   All spectra: Returns value at position 50 (shared calibration)
+
+    std::ifstream file(fileName, std::ios::binary);
+    if (!file.is_open()) {
+        Rcpp::stop("Could not open file");
+    }
+
+    // Validate spectrum index
+    file.seekg(1);
+    unsigned char count;
+    file.read(reinterpret_cast<char*>(&count), 1);
+
+    if (spectrumIndex < 0 || spectrumIndex >= count) {
+        file.close();
+        Rcpp::stop("Spectrum index %d out of range (file has %d spectra)", spectrumIndex, count);
+    }
+
+    // Read shared eVCh from position 50 (applies to all spectra)
+    file.seekg(PDZ_SPEC0_EVCH_POS);  // 50
+    double eVCh;
+    file.read(reinterpret_cast<char*>(&eVCh), sizeof(double));
+
+    if (!file) {
+        file.close();
+        Rcpp::stop("Failed to read eVCh at position 50");
+    }
+
+    file.close();
+    return eVCh;
+}
+
+// [[Rcpp::export]]
+float getPDZTubeVoltage(const std::string& fileName, int spectrumIndex) {
+    // Returns tube voltage in kV for the specified spectrum
+    //
+    // Position calculation:
+    //   Spectrum 0: position 162 (in main header)
+    //   Spectrum N (N>0): gap_start + 164
+    //     where gap_start = 8550 + (N-1) * (8192 + 192)
+    //
+    // Example positions:
+    //   Spectrum 0: 162
+    //   Spectrum 1: 8714
+
+    std::ifstream file(fileName, std::ios::binary);
+    if (!file.is_open()) {
+        Rcpp::stop("Could not open file");
+    }
+
+    // Validate spectrum index
+    file.seekg(1);
+    unsigned char count;
+    file.read(reinterpret_cast<char*>(&count), 1);
+
+    if (spectrumIndex < 0 || spectrumIndex >= count) {
+        file.close();
+        Rcpp::stop("Spectrum index %d out of range (file has %d spectra)", spectrumIndex, count);
+    }
+
+    // Calculate position based on spectrum index
+    long position;
+    if (spectrumIndex == 0) {
+        position = PDZ_SPEC0_VOLTAGE_POS;  // 162
+    } else {
+        // Inter-spectrum metadata block starts after first spectrum ends
+        long blockStart = PDZ_HEADER_SIZE + PDZ_SPECTRUM_SIZE +
+                          (spectrumIndex - 1) * (PDZ_SPECTRUM_SIZE + PDZ_INTER_SPECTRUM_GAP);
+        position = blockStart + PDZ_GAP_VOLTAGE_OFFSET;  // +164
+    }
+
+    file.seekg(position);
+    float voltage;
+    file.read(reinterpret_cast<char*>(&voltage), sizeof(float));
+
+    if (!file) {
+        file.close();
+        Rcpp::stop("Failed to read tube voltage at position %ld", position);
+    }
+
+    file.close();
+    return voltage;
+}
+
+// [[Rcpp::export]]
+Rcpp::List getPDZMetadata(const std::string& fileName) {
+    // Returns comprehensive metadata from PDZ file as a named list
+    //
+    // This extracts all available metadata from the file header and
+    // per-spectrum metadata blocks. The structure follows the manufacturer's
+    // CSV export format where possible.
+    //
+    // Returns a list with:
+    //   - File-level metadata (serial number, format info, calibration)
+    //   - Per-spectrum metadata (voltage, current, livetime, filters)
+    //
+    // R usage:
+    //   meta <- getPDZMetadata("file.pdz")
+    //   meta$serial_number    # Instrument serial
+    //   meta$eVCh             # Energy calibration (shared)
+    //   meta$spectra[[1]]     # Metadata for first spectrum
+    //   meta$spectra[[1]]$tube_voltage_kV
+
+    std::ifstream file(fileName, std::ios::binary);
+    if (!file.is_open()) {
+        Rcpp::stop("Could not open file");
+    }
+
+    // Get file size
+    file.seekg(0, std::ios::end);
+    long fileSize = file.tellg();
+    file.seekg(0, std::ios::beg);
+
+    // Read format version and spectrum count
+    unsigned char formatVersion, spectrumCount;
+    file.read(reinterpret_cast<char*>(&formatVersion), 1);
+    file.read(reinterpret_cast<char*>(&spectrumCount), 1);
+
+    // Read eVCh (shared across all spectra)
+    file.seekg(PDZ_SPEC0_EVCH_POS);
+    double eVCh;
+    file.read(reinterpret_cast<char*>(&eVCh), sizeof(double));
+
+    // Read calibration values
+    file.seekg(PDZ_CAL_VALUE1_POS);
+    double calValue1;
+    file.read(reinterpret_cast<char*>(&calValue1), sizeof(double));
+
+    file.seekg(PDZ_CAL_VALUE2_POS);
+    double calValue2;
+    file.read(reinterpret_cast<char*>(&calValue2), sizeof(double));
+
+    // Read filter information (spectrum 0 / main header)
+    file.seekg(PDZ_FILTER1_ELEMENT_POS);
+    unsigned char filter1Element;
+    file.read(reinterpret_cast<char*>(&filter1Element), 1);
+
+    file.seekg(PDZ_FILTER1_THICK_POS);
+    short filter1Thickness;
+    file.read(reinterpret_cast<char*>(&filter1Thickness), sizeof(short));
+
+    file.seekg(PDZ_FILTER2_ELEMENT_POS);
+    unsigned char filter2Element;
+    file.read(reinterpret_cast<char*>(&filter2Element), 1);
+
+    file.seekg(PDZ_FILTER2_THICK_POS);
+    short filter2Thickness;
+    file.read(reinterpret_cast<char*>(&filter2Thickness), sizeof(short));
+
+    file.seekg(PDZ_FILTER3_ELEMENT_POS);
+    unsigned char filter3Element;
+    file.read(reinterpret_cast<char*>(&filter3Element), 1);
+
+    file.seekg(PDZ_FILTER3_THICK_POS);
+    short filter3Thickness;
+    file.read(reinterpret_cast<char*>(&filter3Thickness), sizeof(short));
+
+    // Read serial number
+    file.seekg(PDZ_SERIAL_POS);
+    char serialBuffer[PDZ_SERIAL_LEN + 1] = {0};
+    file.read(serialBuffer, PDZ_SERIAL_LEN);
+    std::string serialNumber(serialBuffer);
+
+    // Read acquisition datetime (SYSTEMTIME format at position 146)
+    // SYSTEMTIME structure: 16 bytes (8 shorts)
+    //   wYear, wMonth, wDayOfWeek, wDay, wHour, wMinute, wSecond, wMilliseconds
+    file.seekg(PDZ_DATETIME_POS);
+    uint16_t sysTime[8];
+    file.read(reinterpret_cast<char*>(sysTime), 16);
+
+    int acqYear = sysTime[0];
+    int acqMonth = sysTime[1];
+    int acqDay = sysTime[3];  // wDay is at index 3, wDayOfWeek is at index 2
+    int acqHour = sysTime[4];
+    int acqMinute = sysTime[5];
+    int acqSecond = sysTime[6];
+    int acqMilliseconds = sysTime[7];
+
+    // Format datetime string (ISO 8601 format)
+    char datetimeStr[30];
+    snprintf(datetimeStr, sizeof(datetimeStr), "%04d-%02d-%02d %02d:%02d:%02d.%03d",
+             acqYear, acqMonth, acqDay, acqHour, acqMinute, acqSecond, acqMilliseconds);
+    std::string acquisitionDatetime(datetimeStr);
+
+    // Check if v25 format
+    bool isV25 = isPDZv25Format(fileName);
+
+    // Determine format type string
+    std::string formatType;
+    if (isV25) {
+        formatType = "v25_record";
+    } else if (formatVersion == 2) {
+        formatType = "simple_v2";
+    } else {
+        formatType = "unknown";
+    }
+
+    // Create per-spectrum metadata list
+    Rcpp::List spectraList(spectrumCount);
+    Rcpp::CharacterVector spectraNames(spectrumCount);
+
+    for (int specIdx = 0; specIdx < spectrumCount; specIdx++) {
+        float liveTime, voltage, current, realTime, deadTime, resetTime;
+
+        if (specIdx == 0) {
+            // Read from main header
+            file.seekg(PDZ_SPEC0_REALTIME_POS);
+            file.read(reinterpret_cast<char*>(&realTime), sizeof(float));
+
+            file.seekg(PDZ_SPEC0_DEADTIME_POS);
+            file.read(reinterpret_cast<char*>(&deadTime), sizeof(float));
+
+            file.seekg(PDZ_SPEC0_RESETTIME_POS);
+            file.read(reinterpret_cast<char*>(&resetTime), sizeof(float));
+
+            file.seekg(PDZ_SPEC0_LIVETIME_POS);
+            file.read(reinterpret_cast<char*>(&liveTime), sizeof(float));
+
+            file.seekg(PDZ_SPEC0_VOLTAGE_POS);
+            file.read(reinterpret_cast<char*>(&voltage), sizeof(float));
+
+            file.seekg(PDZ_SPEC0_CURRENT_POS);
+            file.read(reinterpret_cast<char*>(&current), sizeof(float));
+        } else {
+            // Read from inter-spectrum gap
+            long blockStart = PDZ_HEADER_SIZE + PDZ_SPECTRUM_SIZE +
+                              (specIdx - 1) * (PDZ_SPECTRUM_SIZE + PDZ_INTER_SPECTRUM_GAP);
+
+            file.seekg(blockStart + PDZ_GAP_REALTIME_OFFSET);
+            file.read(reinterpret_cast<char*>(&realTime), sizeof(float));
+
+            file.seekg(blockStart + PDZ_GAP_DEADTIME_OFFSET);
+            file.read(reinterpret_cast<char*>(&deadTime), sizeof(float));
+
+            file.seekg(blockStart + PDZ_GAP_RESETTIME_OFFSET);
+            file.read(reinterpret_cast<char*>(&resetTime), sizeof(float));
+
+            file.seekg(blockStart + PDZ_GAP_LIVETIME_OFFSET);
+            file.read(reinterpret_cast<char*>(&liveTime), sizeof(float));
+
+            file.seekg(blockStart + PDZ_GAP_VOLTAGE_OFFSET);
+            file.read(reinterpret_cast<char*>(&voltage), sizeof(float));
+
+            file.seekg(blockStart + PDZ_GAP_CURRENT_OFFSET);
+            file.read(reinterpret_cast<char*>(&current), sizeof(float));
+        }
+
+        // Calculate dead time percentage: DeadTime / (LiveTime + DeadTime) * 100
+        // This represents the fraction of time the detector was unable to register counts
+        float deadTimePct = 0.0f;
+        if ((liveTime + deadTime) > 0) {
+            deadTimePct = (deadTime / (liveTime + deadTime)) * 100.0f;
+        }
+
+        // Create spectrum metadata list
+        Rcpp::List specMeta = Rcpp::List::create(
+            Rcpp::Named("spectrum_index") = specIdx,
+            Rcpp::Named("tube_voltage_kV") = voltage,
+            Rcpp::Named("tube_current_uA") = current,
+            Rcpp::Named("real_time_s") = realTime,
+            Rcpp::Named("dead_time_s") = deadTime,
+            Rcpp::Named("reset_time_s") = resetTime,
+            Rcpp::Named("live_time_s") = liveTime,
+            Rcpp::Named("dead_time_pct") = deadTimePct,
+            Rcpp::Named("eVCh") = eVCh
+        );
+
+        // Add filter info only for spectrum 0 (from main header)
+        if (specIdx == 0) {
+            specMeta["filter1_element"] = static_cast<int>(filter1Element);
+            specMeta["filter1_thickness_um"] = static_cast<int>(filter1Thickness);
+            specMeta["filter2_element"] = static_cast<int>(filter2Element);
+            specMeta["filter2_thickness_um"] = static_cast<int>(filter2Thickness);
+            specMeta["filter3_element"] = static_cast<int>(filter3Element);
+            specMeta["filter3_thickness_um"] = static_cast<int>(filter3Thickness);
+        }
+
+        spectraList[specIdx] = specMeta;
+        spectraNames[specIdx] = "spectrum_" + std::to_string(specIdx + 1);
+    }
+    spectraList.attr("names") = spectraNames;
+
+    file.close();
+
+    // Build final result
+    // Note: Tube target element is NOT stored in simple_v2 format.
+    // The target material (e.g., Rh=45) is not encoded in the file header.
+    return Rcpp::List::create(
+        Rcpp::Named("file_size") = fileSize,
+        Rcpp::Named("format_version") = static_cast<int>(formatVersion),
+        Rcpp::Named("format_type") = formatType,
+        Rcpp::Named("is_v25") = isV25,
+        Rcpp::Named("spectrum_count") = static_cast<int>(spectrumCount),
+        Rcpp::Named("serial_number") = serialNumber,
+        Rcpp::Named("acquisition_datetime") = acquisitionDatetime,
+        Rcpp::Named("eVCh") = eVCh,
+        Rcpp::Named("cal_value1") = calValue1,
+        Rcpp::Named("cal_value2") = calValue2,
+        Rcpp::Named("header_size") = PDZ_HEADER_SIZE,
+        Rcpp::Named("channels_per_spectrum") = PDZ_SPECTRUM_CHANNELS,
+        Rcpp::Named("spectra") = spectraList
+    );
+}
+
+// [[Rcpp::export]]
+Rcpp::List readAllPDZSpectra(const std::string& fileName) {
+    // Convenience function to read all spectra from a file
+    // Auto-detects format (v25 record-based vs simple format)
+
+    // Check if this is a v25 record-based file
+    if (isPDZv25Format(fileName)) {
+        // v25 format - use record-based reader
+        // Note: v25 typically has one spectrum per record type 3/4
+        Rcpp::List result(1);
+        Rcpp::CharacterVector names(1);
+        result[0] = readPDZ25(fileName);
+        names[0] = "spectrum_1";
+        result.attr("names") = names;
+        return result;
+    }
+
+    // Simple format (v2) - use direct offset reading
+    int count = getPDZSpectrumCount(fileName);
+
+    Rcpp::List result(count);
+    Rcpp::CharacterVector names(count);
+
+    for (int i = 0; i < count; i++) {
+        result[i] = readPDZSpectrum(fileName, i);
+        names[i] = "spectrum_" + std::to_string(i + 1);
+    }
+
+    result.attr("names") = names;
+    return result;
+}
+
+// [[Rcpp::export]]
+Rcpp::List getPDZDataFrames(const std::string& fileName) {
+    // Universal function to read PDZ file and return ready-to-use data frames
+    //
+    // For each spectrum in the file:
+    //   - Reads raw counts
+    //   - Divides by LiveTime to get CPS (counts per second)
+    //   - Calculates Energy using eVCh calibration
+    //   - Returns DataFrame with Energy and CPS columns
+    //
+    // Always returns a list of data frames (even for single spectrum)
+    // Access: result[[1]] for first spectrum, result[[2]] for second, etc.
+    //
+    // R usage:
+    //   spectra <- getPDZDataFrames("file.pdz")
+    //   plot(spectra[[1]]$Energy, spectra[[1]]$CPS)  # plot first spectrum
+    //   length(spectra)  # number of spectra in file
+
+    // Check if this is a v25 record-based file
+    if (isPDZv25Format(fileName)) {
+        // v25 format - use record-based reader with v25 metadata functions
+        std::vector<float> spectrum = readPDZ25(fileName);
+        float liveTime = readPDZ25LiveTime(fileName);
+        float eVCh = readPDZ25eVCH(fileName);
+
+        // Create Energy and CPS vectors
+        Rcpp::NumericVector energy(PDZ_SPECTRUM_CHANNELS);
+        Rcpp::NumericVector cps(PDZ_SPECTRUM_CHANNELS);
+
+        for (int i = 0; i < PDZ_SPECTRUM_CHANNELS; i++) {
+            energy[i] = (i + 1) * (eVCh / 1000.0);  // Channel 1-2048, eVCh in eV -> keV
+            cps[i] = spectrum[i] / liveTime;
+        }
+
+        // Create DataFrame
+        Rcpp::DataFrame df = Rcpp::DataFrame::create(
+            Rcpp::Named("Energy") = energy,
+            Rcpp::Named("CPS") = cps
+        );
+
+        // Return as list with one element
+        Rcpp::List result(1);
+        Rcpp::CharacterVector names(1);
+        result[0] = df;
+        names[0] = "spectrum_1";
+        result.attr("names") = names;
+        return result;
+    }
+
+    // Simple format (v2) - use direct offset reading
+    int count = getPDZSpectrumCount(fileName);
+
+    Rcpp::List result(count);
+    Rcpp::CharacterVector names(count);
+
+    for (int specIdx = 0; specIdx < count; specIdx++) {
+        // Read spectrum data
+        std::vector<float> spectrum = readPDZSpectrum(fileName, specIdx);
+
+        // Get metadata for this spectrum
+        float liveTime = getPDZLiveTime(fileName, specIdx);
+        double eVCh = getPDZeVCh(fileName, specIdx);
+
+        // Create Energy and CPS vectors
+        Rcpp::NumericVector energy(PDZ_SPECTRUM_CHANNELS);
+        Rcpp::NumericVector cps(PDZ_SPECTRUM_CHANNELS);
+
+        for (int i = 0; i < PDZ_SPECTRUM_CHANNELS; i++) {
+            energy[i] = (i + 1) * (eVCh / 1000.0);  // Channel 1-2048, eVCh in eV -> keV
+            cps[i] = spectrum[i] / liveTime;
+        }
+
+        // Create DataFrame for this spectrum
+        Rcpp::DataFrame df = Rcpp::DataFrame::create(
+            Rcpp::Named("Energy") = energy,
+            Rcpp::Named("CPS") = cps
+        );
+
+        result[specIdx] = df;
+        names[specIdx] = "spectrum_" + std::to_string(specIdx + 1);
+    }
+
+    result.attr("names") = names;
+    return result;
 }

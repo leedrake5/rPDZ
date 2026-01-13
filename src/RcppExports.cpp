@@ -103,6 +103,131 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// getPDZSpectrumCount
+int getPDZSpectrumCount(const std::string& fileName);
+RcppExport SEXP _rPDZ_getPDZSpectrumCount(SEXP fileNameSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::string& >::type fileName(fileNameSEXP);
+    rcpp_result_gen = Rcpp::wrap(getPDZSpectrumCount(fileName));
+    return rcpp_result_gen;
+END_RCPP
+}
+// getPDZFormatVersion
+int getPDZFormatVersion(const std::string& fileName);
+RcppExport SEXP _rPDZ_getPDZFormatVersion(SEXP fileNameSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::string& >::type fileName(fileNameSEXP);
+    rcpp_result_gen = Rcpp::wrap(getPDZFormatVersion(fileName));
+    return rcpp_result_gen;
+END_RCPP
+}
+// isPDZv25Format
+bool isPDZv25Format(const std::string& fileName);
+RcppExport SEXP _rPDZ_isPDZv25Format(SEXP fileNameSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::string& >::type fileName(fileNameSEXP);
+    rcpp_result_gen = Rcpp::wrap(isPDZv25Format(fileName));
+    return rcpp_result_gen;
+END_RCPP
+}
+// readPDZSpectrum
+std::vector<float> readPDZSpectrum(const std::string& fileName, int spectrumIndex);
+RcppExport SEXP _rPDZ_readPDZSpectrum(SEXP fileNameSEXP, SEXP spectrumIndexSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::string& >::type fileName(fileNameSEXP);
+    Rcpp::traits::input_parameter< int >::type spectrumIndex(spectrumIndexSEXP);
+    rcpp_result_gen = Rcpp::wrap(readPDZSpectrum(fileName, spectrumIndex));
+    return rcpp_result_gen;
+END_RCPP
+}
+// getPDZInfo
+Rcpp::List getPDZInfo(const std::string& fileName);
+RcppExport SEXP _rPDZ_getPDZInfo(SEXP fileNameSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::string& >::type fileName(fileNameSEXP);
+    rcpp_result_gen = Rcpp::wrap(getPDZInfo(fileName));
+    return rcpp_result_gen;
+END_RCPP
+}
+// getPDZLiveTime
+float getPDZLiveTime(const std::string& fileName, int spectrumIndex);
+RcppExport SEXP _rPDZ_getPDZLiveTime(SEXP fileNameSEXP, SEXP spectrumIndexSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::string& >::type fileName(fileNameSEXP);
+    Rcpp::traits::input_parameter< int >::type spectrumIndex(spectrumIndexSEXP);
+    rcpp_result_gen = Rcpp::wrap(getPDZLiveTime(fileName, spectrumIndex));
+    return rcpp_result_gen;
+END_RCPP
+}
+// getPDZeVCh
+double getPDZeVCh(const std::string& fileName, int spectrumIndex);
+RcppExport SEXP _rPDZ_getPDZeVCh(SEXP fileNameSEXP, SEXP spectrumIndexSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::string& >::type fileName(fileNameSEXP);
+    Rcpp::traits::input_parameter< int >::type spectrumIndex(spectrumIndexSEXP);
+    rcpp_result_gen = Rcpp::wrap(getPDZeVCh(fileName, spectrumIndex));
+    return rcpp_result_gen;
+END_RCPP
+}
+// getPDZTubeVoltage
+float getPDZTubeVoltage(const std::string& fileName, int spectrumIndex);
+RcppExport SEXP _rPDZ_getPDZTubeVoltage(SEXP fileNameSEXP, SEXP spectrumIndexSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::string& >::type fileName(fileNameSEXP);
+    Rcpp::traits::input_parameter< int >::type spectrumIndex(spectrumIndexSEXP);
+    rcpp_result_gen = Rcpp::wrap(getPDZTubeVoltage(fileName, spectrumIndex));
+    return rcpp_result_gen;
+END_RCPP
+}
+// getPDZMetadata
+Rcpp::List getPDZMetadata(const std::string& fileName);
+RcppExport SEXP _rPDZ_getPDZMetadata(SEXP fileNameSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::string& >::type fileName(fileNameSEXP);
+    rcpp_result_gen = Rcpp::wrap(getPDZMetadata(fileName));
+    return rcpp_result_gen;
+END_RCPP
+}
+// readAllPDZSpectra
+Rcpp::List readAllPDZSpectra(const std::string& fileName);
+RcppExport SEXP _rPDZ_readAllPDZSpectra(SEXP fileNameSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::string& >::type fileName(fileNameSEXP);
+    rcpp_result_gen = Rcpp::wrap(readAllPDZSpectra(fileName));
+    return rcpp_result_gen;
+END_RCPP
+}
+// getPDZDataFrames
+Rcpp::List getPDZDataFrames(const std::string& fileName);
+RcppExport SEXP _rPDZ_getPDZDataFrames(SEXP fileNameSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::string& >::type fileName(fileNameSEXP);
+    rcpp_result_gen = Rcpp::wrap(getPDZDataFrames(fileName));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_rPDZ_readPDZ24", (DL_FUNC) &_rPDZ_readPDZ24, 1},
@@ -113,6 +238,17 @@ static const R_CallMethodDef CallEntries[] = {
     {"_rPDZ_readPDZ25eVCH", (DL_FUNC) &_rPDZ_readPDZ25eVCH, 1},
     {"_rPDZ_readPDZ25LiveTime", (DL_FUNC) &_rPDZ_readPDZ25LiveTime, 1},
     {"_rPDZ_readPDZ25FloatFetch", (DL_FUNC) &_rPDZ_readPDZ25FloatFetch, 2},
+    {"_rPDZ_getPDZSpectrumCount", (DL_FUNC) &_rPDZ_getPDZSpectrumCount, 1},
+    {"_rPDZ_getPDZFormatVersion", (DL_FUNC) &_rPDZ_getPDZFormatVersion, 1},
+    {"_rPDZ_isPDZv25Format", (DL_FUNC) &_rPDZ_isPDZv25Format, 1},
+    {"_rPDZ_readPDZSpectrum", (DL_FUNC) &_rPDZ_readPDZSpectrum, 2},
+    {"_rPDZ_getPDZInfo", (DL_FUNC) &_rPDZ_getPDZInfo, 1},
+    {"_rPDZ_getPDZLiveTime", (DL_FUNC) &_rPDZ_getPDZLiveTime, 2},
+    {"_rPDZ_getPDZeVCh", (DL_FUNC) &_rPDZ_getPDZeVCh, 2},
+    {"_rPDZ_getPDZTubeVoltage", (DL_FUNC) &_rPDZ_getPDZTubeVoltage, 2},
+    {"_rPDZ_getPDZMetadata", (DL_FUNC) &_rPDZ_getPDZMetadata, 1},
+    {"_rPDZ_readAllPDZSpectra", (DL_FUNC) &_rPDZ_readAllPDZSpectra, 1},
+    {"_rPDZ_getPDZDataFrames", (DL_FUNC) &_rPDZ_getPDZDataFrames, 1},
     {NULL, NULL, 0}
 };
 

@@ -33,3 +33,47 @@ readPDZ25FloatFetch <- function(fileName, position) {
     .Call(`_rPDZ_readPDZ25FloatFetch`, fileName, position)
 }
 
+getPDZSpectrumCount <- function(fileName) {
+    .Call(`_rPDZ_getPDZSpectrumCount`, fileName)
+}
+
+getPDZFormatVersion <- function(fileName) {
+    .Call(`_rPDZ_getPDZFormatVersion`, fileName)
+}
+
+isPDZv25Format <- function(fileName) {
+    .Call(`_rPDZ_isPDZv25Format`, fileName)
+}
+
+readPDZSpectrum <- function(fileName, spectrumIndex) {
+    .Call(`_rPDZ_readPDZSpectrum`, fileName, spectrumIndex)
+}
+
+getPDZInfo <- function(fileName) {
+    .Call(`_rPDZ_getPDZInfo`, fileName)
+}
+
+getPDZLiveTime <- function(fileName, spectrumIndex) {
+    .Call(`_rPDZ_getPDZLiveTime`, fileName, spectrumIndex)
+}
+
+getPDZeVCh <- function(fileName, spectrumIndex) {
+    .Call(`_rPDZ_getPDZeVCh`, fileName, spectrumIndex)
+}
+
+getPDZTubeVoltage <- function(fileName, spectrumIndex) {
+    .Call(`_rPDZ_getPDZTubeVoltage`, fileName, spectrumIndex)
+}
+
+getPDZMetadata <- function(fileName) {
+    .Call(`_rPDZ_getPDZMetadata`, fileName)
+}
+
+readAllPDZSpectra <- function(fileName) {
+    .Call(`_rPDZ_readAllPDZSpectra`, fileName)
+}
+
+getPDZDataFrames <- function(fileName) {
+    .Call(`_rPDZ_getPDZDataFrames`, fileName)
+}
+
