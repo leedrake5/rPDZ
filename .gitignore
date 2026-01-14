@@ -4,6 +4,14 @@ pdz_analysis_log.txt
 file_examples/
 v25_file_description.docx
 src/rpdz~.cpp
+
+# Compiled binary files (platform-specific, should not be committed)
+src/*.o
+src/*.so
+src/*.dylib
+*.o
+*.so
+*.dylib
 rPDZ/Read-and-delete-me
 rPDZ/Read-and-delete-me
 rPDZ/Read-and-delete-me
