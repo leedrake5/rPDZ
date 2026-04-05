@@ -359,7 +359,7 @@ int getPDZSpectrumCount(const std::string& fileName) {
 // [[Rcpp::export]]
 int getPDZFormatVersion(const std::string& fileName) {
     // Returns format version byte (byte 0)
-    // Known values: 0x02 for simple format
+    // Known values: 0x01 and 0x02 for simple format (identical layout)
     std::ifstream file(fileName, std::ios::binary);
 
     if (!file.is_open()) {
@@ -477,11 +477,14 @@ Rcpp::List getPDZInfo(const std::string& fileName) {
     bool isV25 = isPDZv25Format(fileName);
 
     // Determine format type string
+    // Format versions 1 and 2 share identical binary layout (358-byte header,
+    // 2048 channels per spectrum, same metadata offsets). Version byte varies
+    // by instrument firmware but the structure is the same.
     std::string formatType;
     if (isV25) {
         formatType = "v25_record";
-    } else if (formatVersion == 2) {
-        formatType = "simple_v2";
+    } else if (formatVersion == 1 || formatVersion == 2) {
+        formatType = "simple";
     } else {
         formatType = "unknown";
     }
@@ -749,11 +752,12 @@ Rcpp::List getPDZMetadata(const std::string& fileName) {
     bool isV25 = isPDZv25Format(fileName);
 
     // Determine format type string
+    // Format versions 1 and 2 share identical binary layout
     std::string formatType;
     if (isV25) {
         formatType = "v25_record";
-    } else if (formatVersion == 2) {
-        formatType = "simple_v2";
+    } else if (formatVersion == 1 || formatVersion == 2) {
+        formatType = "simple";
     } else {
         formatType = "unknown";
     }

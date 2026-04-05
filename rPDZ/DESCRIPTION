@@ -1,7 +1,7 @@
 Package: rPDZ
 Type: Package
 Title: Open PDZ Files
-Version: 2.0
+Version: 2.0.1
 Date: 2026-01-12
 Authors@R: person("Lee", "Drake", role = c("aut", "cre"), email =
         "b.lee.drake@gmail.com")
