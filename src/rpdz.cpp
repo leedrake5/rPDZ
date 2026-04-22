@@ -10,6 +10,8 @@
 #include <fstream>
 #include <vector>
 #include <cstdint>
+#include <cstring>
+#include <algorithm>
 
 using namespace Rcpp;
 // [[Rcpp::export()]]
@@ -88,59 +90,7 @@ NumericVector readPDZ(std::string fileName, int start, int size) {
     return res;
 }
 
-// [[Rcpp::export]]
-std::vector<float> readPDZ25(std::string fileName) {
-    short recordID;
-    int recordLength;
-    float spectrum[2048] = {0.0f}; // Initialize to zeros
-    std::vector<char> record(100000000); // This is okay
-    
-    std::ifstream file(fileName, std::ios::binary);
-
-    if (!file.is_open()) {
-        Rcpp::stop("Could not open file");
-    }
-
-    file.read(record.data(), 20);
-    if (!file) { Rcpp::stop("Failed to read initial 20 bytes"); }
-
-    while (true) {  // Using a plain while loop for clarity
-        file.read(record.data(), 6);
-        if (!file) { Rcpp::stop("Failed to read header"); }
-
-        recordID = *reinterpret_cast<short*>(record.data());
-        recordLength = *reinterpret_cast<int*>(record.data() + 2);
-
-        if (recordID == 3 || recordID == 4) {
-            if (recordLength > record.size()) { Rcpp::stop("Record length too large"); }
-
-            file.read(record.data(), recordLength);
-            if (!file) { Rcpp::stop("Failed to read record"); }
-
-            int spOff = (*reinterpret_cast<int*>(record.data() + 114)) * 2;
-            spOff += (recordID == 3) ? 120 : 164;
-
-            if (spOff + 2048 * sizeof(uint32_t) > record.size()) {
-                Rcpp::stop("Spectrum offset out of bounds");
-            }
-
-            for (int i = 0; i < 2048; i++) {
-                uint32_t count_value = *reinterpret_cast<uint32_t*>(record.data() + spOff + i * sizeof(uint32_t));
-                spectrum[i] = static_cast<float>(count_value);
-            }
-            
-            break;  // Exit the loop once you've found and read the spectrum
-        } else {
-            // Seek past the current record to find the next one
-            if (!file.seekg(recordLength, std::ios_base::cur)) {
-                Rcpp::stop("Failed to seek in file");
-            }
-        }
-    }
-    file.close();
-
-    return std::vector<float>(spectrum, spectrum + 2048);
-}
+// readPDZ25 definition moved below the v25 record-walking helpers.
 
 // [[Rcpp::export]]
 float readPDZ25eVCH(std::string fileName) {  // changed return type to float
@@ -333,12 +283,178 @@ const int PDZ_GAP_LIVETIME_OFFSET = 160;   // LiveTime offset within inter-spect
 const int PDZ_GAP_VOLTAGE_OFFSET = 164;    // Tube voltage offset within inter-spectrum gap
 const int PDZ_GAP_CURRENT_OFFSET = 168;    // Filament current offset within inter-spectrum gap
 
+// ---------------------------------------------------------------------------
+// v25 record-walking helpers (shared by the high-level readers below).
+//
+// A v25 file starts with a "File Header" record of type 25 whose body carries
+// the UTF-16LE string "pdz25" + an InstrumentType int. Records then follow in
+// the form: short recordID, uint32 recordLength, recordLength bytes of body.
+//
+// Record type 3 (XRF Spectrum) has a fixed 110-byte prefix, then a 4-byte
+// IlluminationLength (count of UTF-16 chars), then the Illumination string
+// (2 * IlluminationLength bytes), then a 2-byte NormalPacketStart, then the
+// spectrum counts (uint32 per channel, NumChannels channels, which lives at
+// body offset 104 as a short).
+//
+// The old readPDZ25() treated body[114] as an int offset-to-spectrum with a
+// hardcoded +120/+164 adjustment. That formula only accidentally worked when
+// IlluminationLength == 0 (and even then was off by several bytes). Files
+// with a non-empty Illumination string (e.g. 03106-Mudrock Air.pdz, which
+// also holds two type 3 records) got garbage. These helpers replace that
+// logic with a proper walk of the record structure.
+// ---------------------------------------------------------------------------
+
+static bool v25_readRecordHeader(std::ifstream& file, long pos,
+                                 short& recordID, int& recordLength) {
+    file.clear();
+    file.seekg(pos);
+    if (!file) return false;
+    file.read(reinterpret_cast<char*>(&recordID), sizeof(short));
+    file.read(reinterpret_cast<char*>(&recordLength), sizeof(int));
+    return file.good();
+}
+
+// Count type 3 (XRF Spectrum) records in a v25 file. Caller should have
+// already confirmed the file is v25 via isPDZv25Format().
+static int v25_countType3Records(const std::string& fileName) {
+    std::ifstream file(fileName, std::ios::binary);
+    if (!file.is_open()) return 0;
+
+    file.seekg(0, std::ios::end);
+    long fileSize = file.tellg();
+
+    short rid;
+    int rlen;
+    if (!v25_readRecordHeader(file, 0, rid, rlen)) return 0;
+    if (rid != 25) return 0;
+
+    long pos = 6 + rlen;
+    int count = 0;
+    while (pos + 6 <= fileSize) {
+        if (!v25_readRecordHeader(file, pos, rid, rlen)) break;
+        if (rlen < 0 || pos + 6 + (long)rlen > fileSize) break;
+        if (rid == 3) count++;
+        pos += 6 + rlen;
+    }
+    return count;
+}
+
+// Locate the Nth (0-based) type 3 record. Writes body start offset and body
+// length into the out-parameters. Returns false if not found.
+static bool v25_locateType3Record(const std::string& fileName, int spectrumIndex,
+                                  long& bodyStart, int& bodyLen) {
+    std::ifstream file(fileName, std::ios::binary);
+    if (!file.is_open()) return false;
+
+    file.seekg(0, std::ios::end);
+    long fileSize = file.tellg();
+
+    short rid;
+    int rlen;
+    if (!v25_readRecordHeader(file, 0, rid, rlen)) return false;
+    if (rid != 25) return false;
+
+    long pos = 6 + rlen;
+    int seen = 0;
+    while (pos + 6 <= fileSize) {
+        if (!v25_readRecordHeader(file, pos, rid, rlen)) return false;
+        if (rlen < 0 || pos + 6 + (long)rlen > fileSize) return false;
+        if (rid == 3) {
+            if (seen == spectrumIndex) {
+                bodyStart = pos + 6;
+                bodyLen = rlen;
+                return true;
+            }
+            seen++;
+        }
+        pos += 6 + rlen;
+    }
+    return false;
+}
+
+// Compute the byte offset within a type 3 record body where the spectrum
+// counts begin. Returns -1 on malformed input.
+//
+// Body layout:
+//   0..109    : 110 bytes of fixed-size scalar fields
+//   110       : uint32   IlluminationLength (chars)
+//   114       : wchar_t  Illumination[IlluminationLength]  (2 bytes each)
+//   114+2L    : short    NormalPacketStart
+//   116+2L    : uint32   SpectrumData[NumChannels]
+static long v25_computeSpectrumOffset(const char* body, int bodyLen) {
+    if (bodyLen < 114) return -1;
+    int illLen = *reinterpret_cast<const int*>(body + 110);
+    if (illLen < 0 || illLen > 65535) return -1;
+    long off = 110L + 4L + 2L * illLen + 2L;
+    if (off > bodyLen) return -1;
+    return off;
+}
+
+// Read NumChannels (short at body offset 104), defaulting to 2048 if the
+// value looks implausible.
+static int v25_getNumChannels(const char* body, int bodyLen) {
+    if (bodyLen < 106) return PDZ_SPECTRUM_CHANNELS;
+    short nc = *reinterpret_cast<const short*>(body + 104);
+    if (nc <= 0 || nc > 16384) return PDZ_SPECTRUM_CHANNELS;
+    return static_cast<int>(nc);
+}
+
+// Load a type 3 record's body bytes into `out`. Returns false on failure.
+static bool v25_readType3Body(const std::string& fileName, int spectrumIndex,
+                              std::vector<char>& out) {
+    long bodyStart;
+    int bodyLen;
+    if (!v25_locateType3Record(fileName, spectrumIndex, bodyStart, bodyLen))
+        return false;
+
+    std::ifstream file(fileName, std::ios::binary);
+    if (!file.is_open()) return false;
+    out.resize(bodyLen);
+    file.seekg(bodyStart);
+    file.read(out.data(), bodyLen);
+    return file.good() || (file.eof() && file.gcount() == bodyLen);
+}
+
+// Extract the spectrum counts from a type 3 body into a fixed-size
+// PDZ_SPECTRUM_CHANNELS float buffer, zero-padding extra channels and
+// clipping if NumChannels > PDZ_SPECTRUM_CHANNELS.
+static std::vector<float> v25_extractSpectrum(const std::vector<char>& body) {
+    std::vector<float> spectrum(PDZ_SPECTRUM_CHANNELS, 0.0f);
+    long spOff = v25_computeSpectrumOffset(body.data(), (int)body.size());
+    if (spOff < 0) return spectrum;
+    int numCh = v25_getNumChannels(body.data(), (int)body.size());
+    int toRead = std::min(numCh, PDZ_SPECTRUM_CHANNELS);
+    long available = (long)body.size() - spOff;
+    int fit = (int)std::min<long>(toRead, available / (long)sizeof(uint32_t));
+    for (int i = 0; i < fit; i++) {
+        uint32_t v = *reinterpret_cast<const uint32_t*>(
+            body.data() + spOff + (long)i * sizeof(uint32_t));
+        spectrum[i] = static_cast<float>(v);
+    }
+    return spectrum;
+}
+
+// [[Rcpp::export]]
+std::vector<float> readPDZ25(std::string fileName) {
+    // Returns the first type 3 (XRF Spectrum) record's counts as 2048 floats.
+    // For multi-phase v25 files, use getPDZDataFrames() / readPDZSpectrum() /
+    // readAllPDZSpectra() to access additional phases.
+    std::vector<char> body;
+    if (!v25_readType3Body(fileName, 0, body)) {
+        Rcpp::stop("Could not locate XRF Spectrum (type 3) record in v25 file");
+    }
+    return v25_extractSpectrum(body);
+}
+
 // [[Rcpp::export]]
 int getPDZSpectrumCount(const std::string& fileName) {
-    // Returns number of spectra in file (1 or 2, potentially more in future)
-    // Byte 1 of file contains spectrum count
-    std::ifstream file(fileName, std::ios::binary);
+    // Returns number of spectra in file.
+    // For v25 record-based files, counts XRF Spectrum (type 3) records.
+    // For the simple format, reads the count byte at offset 1.
+    int v25Count = v25_countType3Records(fileName);
+    if (v25Count > 0) return v25Count;
 
+    std::ifstream file(fileName, std::ios::binary);
     if (!file.is_open()) {
         Rcpp::stop("Could not open file");
     }
@@ -408,7 +524,19 @@ bool isPDZv25Format(const std::string& fileName) {
 // [[Rcpp::export]]
 std::vector<float> readPDZSpectrum(const std::string& fileName, int spectrumIndex) {
     // Read spectrum by index (0-based) from PDZ file
-    // Works with both single and multi-spectrum files
+    // Works with both single and multi-spectrum files, v25 record-based files,
+    // and the simple format.
+
+    // v25 branch: locate the Nth type 3 record and extract its spectrum.
+    if (isPDZv25Format(fileName)) {
+        std::vector<char> body;
+        if (!v25_readType3Body(fileName, spectrumIndex, body)) {
+            int total = v25_countType3Records(fileName);
+            Rcpp::stop("Spectrum index %d out of range (v25 file has %d spectra)",
+                       spectrumIndex, total);
+        }
+        return v25_extractSpectrum(body);
+    }
 
     float spectrum[PDZ_SPECTRUM_CHANNELS] = {0.0f};
 
@@ -677,6 +805,110 @@ Rcpp::List getPDZMetadata(const std::string& fileName) {
     long fileSize = file.tellg();
     file.seekg(0, std::ios::beg);
 
+    // v25 record-based files have a completely different header layout from
+    // the simple format; reading simple-format offsets would return garbage
+    // (e.g. the pdz25 UTF-16 marker reinterpreted as a double for eVCh).
+    // Build the metadata list from the type 3 records instead.
+    if (isPDZv25Format(fileName)) {
+        file.close();
+
+        int count = v25_countType3Records(fileName);
+        Rcpp::List spectraList(count);
+        Rcpp::CharacterVector spectraNames(count);
+
+        double sharedEVCh = 20.0;
+        std::string acquisitionDatetime = "";
+
+        for (int specIdx = 0; specIdx < count; specIdx++) {
+            std::vector<char> body;
+            if (!v25_readType3Body(fileName, specIdx, body)) continue;
+            const char* b = body.data();
+            int blen = (int)body.size();
+
+            auto readF = [&](int off, float def = 0.0f) -> float {
+                if (off < 0 || off + 4 > blen) return def;
+                return *reinterpret_cast<const float*>(b + off);
+            };
+            auto readS = [&](int off, short def = 0) -> short {
+                if (off < 0 || off + 2 > blen) return def;
+                return *reinterpret_cast<const short*>(b + off);
+            };
+            auto readI = [&](int off, int def = 0) -> int {
+                if (off < 0 || off + 4 > blen) return def;
+                return *reinterpret_cast<const int*>(b + off);
+            };
+
+            // Per v25 XRF Spectrum record layout (offsets into body).
+            float totalRealTime = readF(20);
+            float totalPacket   = readF(24);
+            float totalDead     = readF(28);
+            float totalReset    = readF(32);
+            float totalLive     = readF(36);
+            float tubeVoltage   = readF(40);
+            float tubeCurrent   = readF(44);
+            short f1e = readS(48), f1t = readS(50);
+            short f2e = readS(52), f2t = readS(54);
+            short f3e = readS(56), f3t = readS(58);
+            float evPerChan     = readF(74);
+            int vacuum          = readI(70);
+
+            if (specIdx == 0) {
+                sharedEVCh = evPerChan;
+                // SYSTEMTIME at body offset 84, 16 bytes
+                if (blen >= 84 + 16) {
+                    uint16_t t[8];
+                    std::memcpy(t, b + 84, 16);
+                    char buf[32];
+                    snprintf(buf, sizeof(buf),
+                             "%04d-%02d-%02d %02d:%02d:%02d.%03d",
+                             t[0], t[1], t[3], t[4], t[5], t[6], t[7]);
+                    acquisitionDatetime = buf;
+                }
+            }
+
+            float deadPct = 0.0f;
+            if (totalLive + totalDead > 0)
+                deadPct = (totalDead / (totalLive + totalDead)) * 100.0f;
+
+            Rcpp::List specMeta = Rcpp::List::create(
+                Rcpp::Named("spectrum_index") = specIdx,
+                Rcpp::Named("tube_voltage_kV") = tubeVoltage,
+                Rcpp::Named("tube_current_uA") = tubeCurrent,
+                Rcpp::Named("real_time_s") = totalRealTime,
+                Rcpp::Named("packet_time_s") = totalPacket,
+                Rcpp::Named("dead_time_s") = totalDead,
+                Rcpp::Named("reset_time_s") = totalReset,
+                Rcpp::Named("live_time_s") = totalLive,
+                Rcpp::Named("dead_time_pct") = deadPct,
+                Rcpp::Named("eVCh") = evPerChan,
+                Rcpp::Named("vacuum") = vacuum
+            );
+            specMeta["filter1_element"] = static_cast<int>(f1e);
+            specMeta["filter1_thickness_um"] = static_cast<int>(f1t);
+            specMeta["filter2_element"] = static_cast<int>(f2e);
+            specMeta["filter2_thickness_um"] = static_cast<int>(f2t);
+            specMeta["filter3_element"] = static_cast<int>(f3e);
+            specMeta["filter3_thickness_um"] = static_cast<int>(f3t);
+
+            spectraList[specIdx] = specMeta;
+            spectraNames[specIdx] = "spectrum_" + std::to_string(specIdx + 1);
+        }
+        spectraList.attr("names") = spectraNames;
+
+        return Rcpp::List::create(
+            Rcpp::Named("file_size") = fileSize,
+            Rcpp::Named("format_version") = 25,
+            Rcpp::Named("format_type") = std::string("v25_record"),
+            Rcpp::Named("is_v25") = true,
+            Rcpp::Named("spectrum_count") = count,
+            Rcpp::Named("serial_number") = std::string(""),
+            Rcpp::Named("acquisition_datetime") = acquisitionDatetime,
+            Rcpp::Named("eVCh") = sharedEVCh,
+            Rcpp::Named("channels_per_spectrum") = PDZ_SPECTRUM_CHANNELS,
+            Rcpp::Named("spectra") = spectraList
+        );
+    }
+
     // Read format version and spectrum count
     unsigned char formatVersion, spectrumCount;
     file.read(reinterpret_cast<char*>(&formatVersion), 1);
@@ -874,20 +1106,11 @@ Rcpp::List readAllPDZSpectra(const std::string& fileName) {
     // Convenience function to read all spectra from a file
     // Auto-detects format (v25 record-based vs simple format)
 
-    // Check if this is a v25 record-based file
-    if (isPDZv25Format(fileName)) {
-        // v25 format - use record-based reader
-        // Note: v25 typically has one spectrum per record type 3/4
-        Rcpp::List result(1);
-        Rcpp::CharacterVector names(1);
-        result[0] = readPDZ25(fileName);
-        names[0] = "spectrum_1";
-        result.attr("names") = names;
-        return result;
-    }
-
-    // Simple format (v2) - use direct offset reading
+    // Works for both v25 (multi-phase supported) and simple format —
+    // readPDZSpectrum() dispatches on isPDZv25Format() internally and
+    // getPDZSpectrumCount() counts type 3 records for v25 files.
     int count = getPDZSpectrumCount(fileName);
+    if (count < 1) count = 1;
 
     Rcpp::List result(count);
     Rcpp::CharacterVector names(count);
@@ -921,31 +1144,44 @@ Rcpp::List getPDZDataFrames(const std::string& fileName) {
 
     // Check if this is a v25 record-based file
     if (isPDZv25Format(fileName)) {
-        // v25 format - use record-based reader with v25 metadata functions
-        std::vector<float> spectrum = readPDZ25(fileName);
-        float liveTime = readPDZ25LiveTime(fileName);
-        float eVCh = readPDZ25eVCH(fileName);
+        int count = v25_countType3Records(fileName);
+        if (count < 1) count = 1;
 
-        // Create Energy and CPS vectors
-        Rcpp::NumericVector energy(PDZ_SPECTRUM_CHANNELS);
-        Rcpp::NumericVector cps(PDZ_SPECTRUM_CHANNELS);
+        Rcpp::List result(count);
+        Rcpp::CharacterVector names(count);
 
-        for (int i = 0; i < PDZ_SPECTRUM_CHANNELS; i++) {
-            energy[i] = (i + 1) * (eVCh / 1000.0);  // Channel 1-2048, eVCh in eV -> keV
-            cps[i] = spectrum[i] / liveTime;
+        for (int specIdx = 0; specIdx < count; specIdx++) {
+            // Load the Nth type 3 record body once and pull spectrum +
+            // eVCh + LiveTime from it, so dual-phase v25 files return
+            // per-phase calibration and timing (e.g. 03106-Mudrock Air.pdz).
+            std::vector<char> body;
+            if (!v25_readType3Body(fileName, specIdx, body)) {
+                Rcpp::stop("Failed to read v25 spectrum record %d", specIdx);
+            }
+
+            std::vector<float> spectrum = v25_extractSpectrum(body);
+            float eVCh = (body.size() >= 78)
+                ? *reinterpret_cast<float*>(body.data() + 74) : 20.0f;
+            float liveTime = (body.size() >= 40)
+                ? *reinterpret_cast<float*>(body.data() + 36) : 1.0f;
+            if (liveTime <= 0.0f) liveTime = 1.0f;
+
+            Rcpp::NumericVector energy(PDZ_SPECTRUM_CHANNELS);
+            Rcpp::NumericVector cps(PDZ_SPECTRUM_CHANNELS);
+            for (int i = 0; i < PDZ_SPECTRUM_CHANNELS; i++) {
+                energy[i] = (i + 1) * (eVCh / 1000.0);
+                cps[i] = spectrum[i] / liveTime;
+            }
+
+            Rcpp::DataFrame df = Rcpp::DataFrame::create(
+                Rcpp::Named("Energy") = energy,
+                Rcpp::Named("CPS") = cps
+            );
+
+            result[specIdx] = df;
+            names[specIdx] = "spectrum_" + std::to_string(specIdx + 1);
         }
 
-        // Create DataFrame
-        Rcpp::DataFrame df = Rcpp::DataFrame::create(
-            Rcpp::Named("Energy") = energy,
-            Rcpp::Named("CPS") = cps
-        );
-
-        // Return as list with one element
-        Rcpp::List result(1);
-        Rcpp::CharacterVector names(1);
-        result[0] = df;
-        names[0] = "spectrum_1";
         result.attr("names") = names;
         return result;
     }
