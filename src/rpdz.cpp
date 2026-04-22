@@ -465,8 +465,11 @@ int getPDZSpectrumCount(const std::string& fileName) {
     file.close();
 
     if (count < 1 || count > 10) {
-        // If value seems unreasonable, might be different format
-        Rcpp::warning("Unexpected spectrum count value: %d - file may be different format", count);
+        // If value seems unreasonable, might be different format.
+        // Warn once, then return 1 so callers still get a best-effort read
+        // instead of an empty list that blows up downstream consumers.
+        Rcpp::warning("Unexpected spectrum count value: %d - file may be different format; treating as 1", count);
+        return 1;
     }
 
     return static_cast<int>(count);
@@ -545,14 +548,16 @@ std::vector<float> readPDZSpectrum(const std::string& fileName, int spectrumInde
         Rcpp::stop("Could not open file");
     }
 
-    // Get spectrum count to validate index
+    // Get spectrum count to validate index. Some files have a bogus 0 in
+    // this byte; treat 0 as 1 so a single best-effort read is still served.
     file.seekg(1);
     unsigned char count;
     file.read(reinterpret_cast<char*>(&count), 1);
+    int effective = (count < 1) ? 1 : static_cast<int>(count);
 
-    if (spectrumIndex < 0 || spectrumIndex >= count) {
+    if (spectrumIndex < 0 || spectrumIndex >= effective) {
         file.close();
-        Rcpp::stop("Spectrum index %d out of range (file has %d spectra)", spectrumIndex, count);
+        Rcpp::stop("Spectrum index %d out of range (file has %d spectra)", spectrumIndex, effective);
     }
 
     // Calculate offset for requested spectrum
@@ -1188,6 +1193,7 @@ Rcpp::List getPDZDataFrames(const std::string& fileName) {
 
     // Simple format (v2) - use direct offset reading
     int count = getPDZSpectrumCount(fileName);
+    if (count < 1) count = 1;  // defensive: never hand back an empty list
 
     Rcpp::List result(count);
     Rcpp::CharacterVector names(count);
