@@ -17,10 +17,6 @@ readPDZ <- function(fileName, start, size) {
     .Call(`_rPDZ_readPDZ`, fileName, start, size)
 }
 
-readPDZ25 <- function(fileName) {
-    .Call(`_rPDZ_readPDZ25`, fileName)
-}
-
 readPDZ25eVCH <- function(fileName) {
     .Call(`_rPDZ_readPDZ25eVCH`, fileName)
 }
@@ -31,6 +27,10 @@ readPDZ25LiveTime <- function(fileName) {
 
 readPDZ25FloatFetch <- function(fileName, position) {
     .Call(`_rPDZ_readPDZ25FloatFetch`, fileName, position)
+}
+
+readPDZ25 <- function(fileName) {
+    .Call(`_rPDZ_readPDZ25`, fileName)
 }
 
 getPDZSpectrumCount <- function(fileName) {

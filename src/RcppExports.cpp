@@ -58,17 +58,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// readPDZ25
-std::vector<float> readPDZ25(std::string fileName);
-RcppExport SEXP _rPDZ_readPDZ25(SEXP fileNameSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< std::string >::type fileName(fileNameSEXP);
-    rcpp_result_gen = Rcpp::wrap(readPDZ25(fileName));
-    return rcpp_result_gen;
-END_RCPP
-}
 // readPDZ25eVCH
 float readPDZ25eVCH(std::string fileName);
 RcppExport SEXP _rPDZ_readPDZ25eVCH(SEXP fileNameSEXP) {
@@ -100,6 +89,17 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< std::string >::type fileName(fileNameSEXP);
     Rcpp::traits::input_parameter< int >::type position(positionSEXP);
     rcpp_result_gen = Rcpp::wrap(readPDZ25FloatFetch(fileName, position));
+    return rcpp_result_gen;
+END_RCPP
+}
+// readPDZ25
+std::vector<float> readPDZ25(std::string fileName);
+RcppExport SEXP _rPDZ_readPDZ25(SEXP fileNameSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string >::type fileName(fileNameSEXP);
+    rcpp_result_gen = Rcpp::wrap(readPDZ25(fileName));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -234,10 +234,10 @@ static const R_CallMethodDef CallEntries[] = {
     {"_rPDZ_readPDZ24FloatFetch", (DL_FUNC) &_rPDZ_readPDZ24FloatFetch, 2},
     {"_rPDZ_readPDZ24DoubleFetch", (DL_FUNC) &_rPDZ_readPDZ24DoubleFetch, 2},
     {"_rPDZ_readPDZ", (DL_FUNC) &_rPDZ_readPDZ, 3},
-    {"_rPDZ_readPDZ25", (DL_FUNC) &_rPDZ_readPDZ25, 1},
     {"_rPDZ_readPDZ25eVCH", (DL_FUNC) &_rPDZ_readPDZ25eVCH, 1},
     {"_rPDZ_readPDZ25LiveTime", (DL_FUNC) &_rPDZ_readPDZ25LiveTime, 1},
     {"_rPDZ_readPDZ25FloatFetch", (DL_FUNC) &_rPDZ_readPDZ25FloatFetch, 2},
+    {"_rPDZ_readPDZ25", (DL_FUNC) &_rPDZ_readPDZ25, 1},
     {"_rPDZ_getPDZSpectrumCount", (DL_FUNC) &_rPDZ_getPDZSpectrumCount, 1},
     {"_rPDZ_getPDZFormatVersion", (DL_FUNC) &_rPDZ_getPDZFormatVersion, 1},
     {"_rPDZ_isPDZv25Format", (DL_FUNC) &_rPDZ_isPDZv25Format, 1},
