@@ -415,6 +415,86 @@ static bool v25_readType3Body(const std::string& fileName, int spectrumIndex,
     return file.good() || (file.eof() && file.gcount() == bodyLen);
 }
 
+// Locate the first record of an arbitrary type in a v25 file (generalises
+// v25_locateType3Record). Writes body start offset and length; returns false
+// if the file is not v25 or the record is absent.
+static bool v25_locateRecord(const std::string& fileName, short targetID,
+                             long& bodyStart, int& bodyLen) {
+    std::ifstream file(fileName, std::ios::binary);
+    if (!file.is_open()) return false;
+    file.seekg(0, std::ios::end);
+    long fileSize = file.tellg();
+    short rid; int rlen;
+    if (!v25_readRecordHeader(file, 0, rid, rlen)) return false;
+    if (rid != 25) return false;
+    long pos = 6 + rlen;
+    while (pos + 6 <= fileSize) {
+        if (!v25_readRecordHeader(file, pos, rid, rlen)) return false;
+        if (rlen < 0 || pos + 6 + (long)rlen > fileSize) return false;
+        if (rid == targetID) { bodyStart = pos + 6; bodyLen = rlen; return true; }
+        pos += 6 + rlen;
+    }
+    return false;
+}
+
+// Parse the type 1 (XRF Instrument) record. Its fields are variable-length
+// (UTF-16 strings), so the body must be walked sequentially:
+//   u32 len + wchar[len]  SerialNumber
+//   u32 len + wchar[len]  BuildNumber
+//   byte  TubeTargetElement   (anode atomic number: 45=Rh, 47=Ag)
+//   byte  AnodeTakeoffAngle    (deg)
+//   byte  SampleIncidenceAngle (deg)
+//   byte  SampleTakeoffAngle   (deg)
+//   short BeThickness          (um)
+//   u32 len + wchar[len]  DetectorModel  (xFlash/Amptek/SiPin/Ketek/...)
+// Fills the out-params; returns false if the record is absent/truncated. This
+// is the hardware info that the flat simple_v2 files do NOT carry.
+static bool v25_readInstrumentRecord(const std::string& fileName,
+                                     int& anodeZ, int& anodeTakeoff,
+                                     int& sampleIncidence, int& sampleTakeoff,
+                                     int& beMicrons, std::string& detectorModel) {
+    anodeZ = 0; anodeTakeoff = 0; sampleIncidence = 0; sampleTakeoff = 0;
+    beMicrons = 0; detectorModel = "";
+    long bodyStart; int bodyLen;
+    if (!v25_locateRecord(fileName, 1, bodyStart, bodyLen)) return false;
+    if (bodyLen <= 0 || bodyLen > (1 << 20)) return false;
+    std::vector<char> body(bodyLen);
+    {
+        std::ifstream file(fileName, std::ios::binary);
+        if (!file.is_open()) return false;
+        file.seekg(bodyStart);
+        file.read(body.data(), bodyLen);
+    }
+    const char* b = body.data();
+    long pos = 0;
+    auto skipWStr = [&]() -> bool {
+        if (pos + 4 > bodyLen) return false;
+        int len = *reinterpret_cast<const int*>(b + pos); pos += 4;
+        if (len < 0 || len > 65535) return false;
+        pos += 2L * len;
+        return pos <= bodyLen;
+    };
+    auto readWStr = [&](std::string& out) -> bool {
+        if (pos + 4 > bodyLen) return false;
+        int len = *reinterpret_cast<const int*>(b + pos); pos += 4;
+        if (len < 0 || len > 65535 || pos + 2L * len > bodyLen) return false;
+        out.clear();
+        for (int i = 0; i < len; i++) { char c = b[pos + 2L * i]; if (c) out.push_back(c); }
+        pos += 2L * len;
+        return true;
+    };
+    if (!skipWStr()) return false;   // SerialNumber
+    if (!skipWStr()) return false;   // BuildNumber
+    if (pos + 4 + 2 > bodyLen) return false;
+    anodeZ          = (unsigned char)b[pos++];
+    anodeTakeoff    = (unsigned char)b[pos++];
+    sampleIncidence = (unsigned char)b[pos++];
+    sampleTakeoff   = (unsigned char)b[pos++];
+    beMicrons       = *reinterpret_cast<const short*>(b + pos); pos += 2;
+    readWStr(detectorModel);          // best-effort; leaves "" if truncated
+    return true;
+}
+
 // Extract the spectrum counts from a type 3 body into a fixed-size
 // PDZ_SPECTRUM_CHANNELS float buffer, zero-padding extra channels and
 // clipping if NumChannels > PDZ_SPECTRUM_CHANNELS.
@@ -900,6 +980,12 @@ Rcpp::List getPDZMetadata(const std::string& fileName) {
         }
         spectraList.attr("names") = spectraNames;
 
+        // Instrument (type 1) record: real anode / detector / geometry, absent from simple_v2 files.
+        int anodeZ, anodeTakeoff, sampleIncidence, sampleTakeoff, beMicrons;
+        std::string detectorModel;
+        bool haveInstr = v25_readInstrumentRecord(fileName, anodeZ, anodeTakeoff,
+                             sampleIncidence, sampleTakeoff, beMicrons, detectorModel);
+
         return Rcpp::List::create(
             Rcpp::Named("file_size") = fileSize,
             Rcpp::Named("format_version") = 25,
@@ -910,6 +996,12 @@ Rcpp::List getPDZMetadata(const std::string& fileName) {
             Rcpp::Named("acquisition_datetime") = acquisitionDatetime,
             Rcpp::Named("eVCh") = sharedEVCh,
             Rcpp::Named("channels_per_spectrum") = PDZ_SPECTRUM_CHANNELS,
+            Rcpp::Named("anode_z") = haveInstr ? anodeZ : NA_INTEGER,
+            Rcpp::Named("detector_model") = detectorModel,
+            Rcpp::Named("anode_takeoff_deg") = haveInstr ? anodeTakeoff : NA_INTEGER,
+            Rcpp::Named("sample_incidence_deg") = haveInstr ? sampleIncidence : NA_INTEGER,
+            Rcpp::Named("sample_takeoff_deg") = haveInstr ? sampleTakeoff : NA_INTEGER,
+            Rcpp::Named("be_thickness_um") = haveInstr ? beMicrons : NA_INTEGER,
             Rcpp::Named("spectra") = spectraList
         );
     }
